@@ -1,5 +1,6 @@
 {
     "projects": {
+        "watup-fe": "https://github.com/watup-lk/watup-fe.git",
         "identity-service": "https://github.com/watup-lk/identity-service.git"
     }
 }
