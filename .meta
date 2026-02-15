@@ -1,0 +1,7 @@
+{
+    "projects": {
+        "repo_1": "https://github.com/Repo/repo_1.git",
+        "repo_2": "https://github.com/Repo/repo_2.git",
+        "repo_3": "https://github.com/Repo/repo_3.git"
+    }
+}
