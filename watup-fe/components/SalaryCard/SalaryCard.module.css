@@ -1,0 +1,101 @@
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s;
+}
+
+.card:hover {
+  box-shadow: var(--shadow);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.role {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.company {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-top: 0.1rem;
+}
+
+.salary {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.statusBadge {
+  composes: badge;
+}
+
+.statusPending {
+  color: var(--color-pending);
+  border-color: var(--color-pending);
+}
+
+.statusApproved {
+  color: var(--color-approved);
+  border-color: var(--color-approved);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.votes {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.voteUp {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.voteDown {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.viewLink {
+  font-size: 0.85rem;
+  font-weight: 500;
+}

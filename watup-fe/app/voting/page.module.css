@@ -1,0 +1,252 @@
+.page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.subtitle {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-top: 0.2rem;
+}
+
+.filterBtn {
+  background: var(--color-primary);
+  color: var(--color-bg);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.5rem 1.1rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: background-color 0.15s;
+}
+
+.filterBtn:hover {
+  background: var(--color-primary-hover);
+}
+
+.filterTabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filterTab {
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.filterTab:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.filterTabActive {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-bg);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.cardMain {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1.25rem;
+  gap: 1rem;
+}
+
+.cardLeft {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.cardTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.cardRole {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.badgePending {
+  background: var(--color-pending-dim);
+  color: var(--color-pending);
+}
+
+.cardMeta {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.cardSalary {
+  font-family: var(--font-mono);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.salaryUnit {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+/* Vote group */
+.voteGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.voteBtn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.voteBtnUp {
+  background: var(--color-success);
+  color: white;
+}
+
+.voteBtnDown {
+  background: var(--color-danger);
+  color: white;
+}
+
+.voteBtn:hover:not(:disabled) {
+  opacity: 0.85;
+  transform: scale(1.05);
+}
+
+.voteBtn:disabled {
+  cursor: default;
+}
+
+.votedUp {
+  box-shadow: 0 0 0 2px var(--color-success);
+}
+
+.votedDown {
+  box-shadow: 0 0 0 2px var(--color-danger);
+}
+
+.voteCount {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Footer */
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1.25rem;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-2);
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cardActions {
+  display: flex;
+  gap: 1rem;
+}
+
+.reportBtn, .commentBtn {
+  background: none;
+  border: none;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.reportBtn:hover {
+  color: var(--color-danger);
+}
+
+.commentBtn:hover {
+  color: var(--color-primary);
+}
+
+.cardTime {
+  font-size: 0.72rem;
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+}

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "github.com/padi-lk/vote-service/api/proto/v1";
+
+service VoteService {
+  // Records a user's vote for a specific salary submission
+  rpc RecordVote(RecordVoteRequest) returns (RecordVoteResponse);
+}
+
+message RecordVoteRequest {
+  string submission_id = 1;
+  enum VoteType {
+    UPVOTE = 0;
+    DOWNVOTE = 1;
+  }
+  VoteType vote_type = 2;
+  // Note: user_id is extracted from gRPC Metadata (JWT) by the service
+}
+
+message RecordVoteResponse {
+  bool success = 1;
+  string message = 2;
+  bool threshold_reached = 3;
+}

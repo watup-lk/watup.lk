@@ -1,0 +1,157 @@
+.container {
+  max-width: 700px;
+  margin: 2.5rem auto;
+  padding: 0 1.5rem;
+}
+
+.back {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 1.5rem;
+}
+
+.back:hover {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 2rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.role {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.company {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  margin-top: 0.15rem;
+}
+
+.salary {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.salary small {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.statusBadge {
+  composes: badge;
+}
+
+.statusPending {
+  color: var(--color-pending);
+  border-color: var(--color-pending);
+}
+
+.statusApproved {
+  color: var(--color-approved);
+  border-color: var(--color-approved);
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5rem 0;
+}
+
+.voteSection h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.voteSection p {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+}
+
+.voteButtons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.voteBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-bg);
+  border-radius: var(--radius);
+  padding: 0.5rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.voteUp:hover {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.voteDown:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.voteBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voted {
+  font-size: 0.85rem;
+  color: var(--color-success);
+  margin-top: 0.75rem;
+}
+
+.loginPrompt {
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
