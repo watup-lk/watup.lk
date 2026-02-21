@@ -1,0 +1,128 @@
+services:
+  # --- Central Infrastructure Database ---
+  postgres-db:
+    build:
+      context: ./infra-db
+    container_name: watup-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    networks:
+      - watup-internal
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # --- BFF (NestJS) ---
+  bff:
+    build:
+      context: ./bff
+    container_name: bff
+    ports:
+      - "8080:8080"
+    networks:
+      - watup-internal
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: on-failure
+
+  # --- Identity Microservice ---
+  identity-service:
+    build:
+      context: ./identity-service
+    container_name: identity-service
+    environment:
+      # Change the url format according to the microservice and delete this comment once done :)
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=identity_schema
+    ports:
+      - "8081:8080"
+    networks:
+      - watup-internal
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: on-failure
+
+  # --- Salary Microservice ---
+  salary-service:
+    build:
+      context: ./salary-service
+    container_name: salary-service
+    environment:
+      # Change the url format according to the microservice and delete this comment once done :)
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=salary_schema
+    ports:
+      - "8082:8080"
+    networks:
+      - watup-internal
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: on-failure
+
+  # --- Search Microservice ---
+  search-service:
+    build:
+      context: ./search-service
+    container_name: search-service
+    environment:
+      # Change the url format according to the microservice and delete this comment once done :)
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=salary_schema
+    ports:
+      - "8083:8080"
+    networks:
+      - watup-internal
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: on-failure
+
+    
+  # --- Stats Microservice ---
+  stats-service:
+    build:
+      context: ./stats-service
+    container_name: stats-service
+    environment:
+      # Change the url format according to the microservice and delete this comment once done :)
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=community_schema
+    ports:
+      - "8084:8080"
+    networks:
+      - watup-internal
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: on-failure
+
+  # --- Vote Microservice (Go) ---
+  vote-service:
+    build:
+      context: ./vote-service
+    container_name: vote-service
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=vote_schema
+    ports:
+      - "8085:8080"
+    networks:
+      - watup-internal
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: on-failure
+
+networks:
+  watup-internal:
+    driver: bridge
+
+volumes:
+  pgdata:
