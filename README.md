@@ -54,6 +54,15 @@ docker compose down
 docker compose down -v
 ```
 
+## Proto Definitions & Code Generation
+
+All gRPC service definitions are stored in the root `proto/` directory. This ensures a single source of truth for service contracts across all microservices.
+
+### Workflow
+
+1. **Add/Update Protos**: Place your `.proto` files in the root `proto/` directory.
+2. **Generate Code**: Navigate to the specific service directory (e.g., `vote-service`) and run the code generation command.
+
 ## Database
 
 This project uses a containerized architecture to ensure a consistent development environment across the team. The core data layer is powered by PostgreSQL 16 (Alpine), managed via Docker.
