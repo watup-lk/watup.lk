@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package v1;
 
-option go_package = "github.com/padi-lk/vote-service/api/proto/v1";
+option go_package = "github.com/watup-lk/vote-service/api/proto/v1";
 
 service VoteService {
   // Records a user's vote for a specific salary submission
