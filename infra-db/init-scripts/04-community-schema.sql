@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS votes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Typically you'd want each user to have only one vote per submission
 CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_submission_user ON votes (submission_id, user_id);
 
 -- High-performance counter table tailored for asynchronous Kafka updates
