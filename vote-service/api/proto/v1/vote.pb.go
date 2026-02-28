@@ -198,7 +198,7 @@ const file_vote_proto_rawDesc = "" +
 	"\x11threshold_reached\x18\x03 \x01(\bR\x10thresholdReached2J\n" +
 	"\vVoteService\x12;\n" +
 	"\n" +
-	"RecordVote\x12\x15.v1.RecordVoteRequest\x1a\x16.v1.RecordVoteResponseB.Z,github.com/padi-lk/vote-service/api/proto/v1b\x06proto3"
+	"RecordVote\x12\x15.v1.RecordVoteRequest\x1a\x16.v1.RecordVoteResponseB/Z-github.com/watup-lk/vote-service/api/proto/v1b\x06proto3"
 
 var (
 	file_vote_proto_rawDescOnce sync.Once

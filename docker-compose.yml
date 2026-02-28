@@ -112,6 +112,7 @@ services:
     container_name: vote-service
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=vote_schema
+      - DATABASE_PORT=5432
     ports:
       - "8085:8080"
     networks:

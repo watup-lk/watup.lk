@@ -5,17 +5,17 @@ import (
 )
 
 type Config struct {
-	Port              string
-	DatabaseURL       string
-	KafkaBrokers      []string
+	Port string
+	DatabaseURL string
+	KafkaBrokers []string
 	ApprovalThreshold int
 }
 
 func Load() *Config {
 	return &Config{
-		Port:         getEnv("PORT", "50051"),
-		DatabaseURL:  getEnv("DATABASE_URL", "postgres://user:pass@localhost:5432/db?sslmode=disable"),
-		KafkaBrokers: []string{getEnv("KAFKA_BROKERS", "localhost:9092")},
+		Port: getEnv("DATABASE_PORT", ""),
+		DatabaseURL: getEnv("DATABASE_URL", ""),
+		KafkaBrokers: []string{getEnv("KAFKA_BROKERS", "")},
 	}
 }
 

@@ -1,4 +1,4 @@
-module github.com/padi-lk/vote-service
+module github.com/watup-lk/vote-service
 
 go 1.25.0
 

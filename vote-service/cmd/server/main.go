@@ -6,11 +6,11 @@ import (
 	"net"
 	"google.golang.org/grpc"
 
-	v1 "github.com/padi-lk/vote-service/api/proto/v1"
-	"github.com/padi-lk/vote-service/internal/config"
-	"github.com/padi-lk/vote-service/internal/kafka"
-	"github.com/padi-lk/vote-service/internal/repository"
-	"github.com/padi-lk/vote-service/internal/service"
+	v1 "github.com/watup-lk/vote-service/api/proto/v1"
+	"github.com/watup-lk/vote-service/internal/config"
+	"github.com/watup-lk/vote-service/internal/kafka"
+	"github.com/watup-lk/vote-service/internal/repository"
+	"github.com/watup-lk/vote-service/internal/service"
 )
 
 func main() {
