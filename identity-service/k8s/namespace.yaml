@@ -1,0 +1,17 @@
+---
+# app namespace: all microservices (identity, salary, vote, search, stats, bff)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app
+  labels:
+    name: app
+
+---
+# data namespace: PostgreSQL — isolated from application workloads
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data
+  labels:
+    name: data

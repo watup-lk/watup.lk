@@ -1,0 +1,322 @@
+name: Identity Service CI/CD
+
+# GitHub Actions ONLY reads workflows from .github/workflows/ at the REPO ROOT.
+# Trigger only when files inside identity-service/ change.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "identity-service/**"
+      - ".github/workflows/identity-service-ci.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "identity-service/**"
+      - ".github/workflows/identity-service-ci.yml"
+
+env:
+  GO_VERSION: "1.24"
+  IMAGE_NAME: identity-service
+  MIN_COVERAGE: "60"
+
+jobs:
+  # ── 1. Test & Code Quality ────────────────────────────────────────────────────
+  test:
+    name: Test & Quality
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: identity-service
+
+    services:
+      # Real PostgreSQL container for integration tests
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U testuser"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: identity-service/go.sum
+
+      - name: Download and verify dependencies
+        run: |
+          go mod download
+          go mod verify
+
+      - name: go vet (static analysis)
+        run: go vet ./...
+
+      - name: Run unit tests with race detector
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Enforce minimum coverage (${{ env.MIN_COVERAGE }}%)
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Coverage: ${COVERAGE}%"
+          if [ "$(echo "${COVERAGE} < ${{ env.MIN_COVERAGE }}" | bc -l)" -eq 1 ]; then
+            echo "FAIL: Coverage ${COVERAGE}% is below minimum ${{ env.MIN_COVERAGE }}%"
+            exit 1
+          fi
+          echo "✓ Coverage ${COVERAGE}% meets minimum ${{ env.MIN_COVERAGE }}%"
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: identity-service/coverage.out
+          retention-days: 7
+
+  # ── 2. Security Scanning ──────────────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+    defaults:
+      run:
+        working-directory: identity-service
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: identity-service/go.sum
+
+      - name: Run gosec (Go security scanner)
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -fmt sarif -out gosec-results.sarif ./... || true
+
+      - name: Upload gosec SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: identity-service/gosec-results.sarif
+          category: gosec
+
+      - name: Check for known vulnerable dependencies (govulncheck)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  # ── 3. Build & Push Docker image to Azure Container Registry ─────────────────
+  build:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    # Only push images on main branch (not PRs)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    defaults:
+      run:
+        working-directory: identity-service
+
+    outputs:
+      sha_tag: ${{ steps.meta.outputs.sha_tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Compute image tags
+        id: meta
+        run: |
+          SHA_TAG="${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          LATEST_TAG="${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest"
+          echo "sha_tag=${SHA_TAG}" >> "$GITHUB_OUTPUT"
+          echo "latest_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --tag "${{ steps.meta.outputs.sha_tag }}" \
+            --tag "${{ steps.meta.outputs.latest_tag }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            .
+
+      # Scan the built image for CVEs before pushing to the registry
+      - name: Scan image with Trivy (vulnerability scanner)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.sha_tag }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"    # Report findings but don't fail the build
+
+      - name: Upload Trivy SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      - name: Push Docker image to ACR
+        run: |
+          docker push "${{ steps.meta.outputs.sha_tag }}"
+          docker push "${{ steps.meta.outputs.latest_tag }}"
+          echo "✓ Pushed ${{ steps.meta.outputs.sha_tag }}"
+
+  # ── 4. Deploy to Azure Kubernetes Service ─────────────────────────────────────
+  deploy:
+    name: Deploy to AKS
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production   # Requires manual approval in GitHub Environments settings
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS kubectl context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ secrets.RESOURCE_GROUP }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+
+      - name: Apply infrastructure manifests (idempotent)
+        run: |
+          # Namespaces first — all other resources depend on them
+          kubectl apply -f identity-service/k8s/namespace.yaml
+
+          # PostgreSQL in data namespace (PVC preserves data across deployments)
+          kubectl apply -f identity-service/k8s/postgres/
+
+          # Kafka in app namespace
+          kubectl apply -f identity-service/k8s/kafka/
+
+          # Identity service config and RBAC
+          kubectl apply -f identity-service/k8s/serviceaccount.yaml
+          kubectl apply -f identity-service/k8s/configmap.yaml
+          kubectl apply -f identity-service/k8s/secret.yaml
+
+      - name: Rolling update identity-service image
+        run: |
+          IMAGE="${{ needs.build.outputs.sha_tag }}"
+          echo "Deploying image: ${IMAGE}"
+
+          # Pin the exact SHA-tagged image (immutable — never use :latest in prod)
+          kubectl set image deployment/identity-service \
+            identity-service="${IMAGE}" \
+            -n app
+
+          # Apply full manifests to pick up probe/resource/annotation changes
+          kubectl apply -f identity-service/k8s/deployment.yaml
+          kubectl apply -f identity-service/k8s/service.yaml
+          kubectl apply -f identity-service/k8s/hpa.yaml
+          kubectl apply -f identity-service/k8s/pdb.yaml
+          kubectl apply -f identity-service/k8s/ingress.yaml
+          kubectl apply -f identity-service/k8s/network-policy.yaml
+
+      - name: Wait for rollout to succeed
+        run: |
+          kubectl rollout status deployment/identity-service -n app --timeout=300s
+          echo "✓ Rollout complete"
+
+      - name: Deployment verification
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -l app=identity-service -n app -o wide
+          echo ""
+          echo "=== Service ==="
+          kubectl get svc identity-service -n app
+          echo ""
+          echo "=== HPA ==="
+          kubectl get hpa identity-service-hpa -n app
+          echo ""
+          echo "=== PDB ==="
+          kubectl get pdb identity-service-pdb -n app
+
+      # ── Smoke Tests ──────────────────────────────────────────────────────────
+      - name: Get ingress IP for smoke tests
+        id: ingress
+        run: |
+          for i in {1..18}; do
+            IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            if [ -n "$IP" ]; then
+              echo "ip=${IP}" >> "$GITHUB_OUTPUT"
+              echo "Ingress IP: ${IP}"
+              break
+            fi
+            echo "Waiting for external IP... attempt $i/18"
+            sleep 10
+          done
+
+      - name: Run smoke tests against deployed service
+        if: steps.ingress.outputs.ip != ''
+        run: |
+          BASE_URL="http://${{ steps.ingress.outputs.ip }}"
+          echo "Running smoke tests against ${BASE_URL}"
+
+          check() {
+            local name="$1" expected="$2"
+            local actual
+            actual=$(eval "$3" || echo "000")
+            if [ "$actual" = "$expected" ]; then
+              echo "✓ $name → $actual"
+            else
+              echo "✗ $name → $actual (expected $expected)"
+              exit 1
+            fi
+          }
+
+          check "/health/live" "200" \
+            "curl -s -o /dev/null -w '%{http_code}' --retry 5 --retry-delay 5 '${BASE_URL}/health/live'"
+
+          check "/health/ready" "200" \
+            "curl -s -o /dev/null -w '%{http_code}' --retry 5 --retry-delay 5 '${BASE_URL}/health/ready'"
+
+          # Empty body → 400 Bad Request (not 404 which would mean routing is broken)
+          check "/auth/signup (empty body)" "400" \
+            "curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' '${BASE_URL}/auth/signup'"
+
+          # Validate endpoint must return 401 when no token provided (not 404)
+          check "/auth/validate (no token)" "401" \
+            "curl -s -o /dev/null -w '%{http_code}' '${BASE_URL}/auth/validate'"
+
+          echo "✓ All smoke tests passed"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deployment of identity-service failed. Check logs above."
+          echo "To inspect: kubectl describe pods -l app=identity-service -n app"
+          echo "To rollback: kubectl rollout undo deployment/identity-service -n app"
+          echo "To view logs: kubectl logs -l app=identity-service -n app --tail=100"

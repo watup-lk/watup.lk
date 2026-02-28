@@ -35,20 +35,51 @@ services:
         condition: service_healthy
     restart: on-failure
 
+  # --- Kafka (KRaft mode — no ZooKeeper) ---
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: watup-kafka
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@localhost:9093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    networks:
+      - watup-internal
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
   # --- Identity Microservice ---
   identity-service:
     build:
       context: ./identity-service
     container_name: identity-service
     environment:
-      # Change the url format according to the microservice and delete this comment once done :)
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=identity_schema
+      # sslmode=disable for local dev — the local postgres container doesn't use TLS
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=identity_schema&sslmode=disable
+      - JWT_SECRET=${JWT_SECRET:-local-dev-secret-key-min-32-chars!!}
+      - KAFKA_BROKERS=kafka:9092
     ports:
-      - "8081:8080"
+      - "8081:8080"    # HTTP API
+      - "50052:50052"  # gRPC internal
+      - "9090:9090"    # Prometheus metrics
     networks:
       - watup-internal
     depends_on:
       postgres-db:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     restart: on-failure
 

@@ -1,0 +1,35 @@
+# Git metadata
+.git
+.gitignore
+
+# Go build artifacts
+bin/
+*.test
+
+# Test coverage output
+coverage.out
+coverage.html
+
+# Node.js (stale — this is a Go service)
+node_modules/
+package.json
+package-lock.json
+
+# Local environment files
+.env
+.env.*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Kubernetes manifests — not needed in the image
+k8s/
+
+# CI/CD workflows — not needed in the image
+.github/
+
+# Docs
+*.md

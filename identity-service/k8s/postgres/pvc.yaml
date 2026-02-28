@@ -1,0 +1,17 @@
+# PersistentVolumeClaim for PostgreSQL — ensures data survives pod restarts.
+# Backed by Azure Managed Disk (Premium SSD) via the managed-premium StorageClass.
+# This fulfils the spec requirement: "persistent storage is enabled (PVC)".
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: data
+  labels:
+    app: postgres
+spec:
+  accessModes:
+    - ReadWriteOnce     # Single node access (standard for single-node AKS cluster)
+  storageClassName: managed-premium   # Azure Premium SSD — auto-provisioned by AKS
+  resources:
+    requests:
+      storage: 10Gi
