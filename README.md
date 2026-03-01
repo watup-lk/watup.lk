@@ -76,7 +76,7 @@ We use a single database instance with multiple logical schemas to provide data 
 | **Start DB** | `docker compose up -d postgres-db` | Starts the Postgres container in the background. |
 | **Stop DB** | `docker compose stop postgres-db` | Gracefully stops the DB (preserves container state). |
 | **Resume DB** | `docker compose start postgres-db` | Quickly starts the stopped DB container. |
-| **Remove DB** | `docker compose down` | Stops and removes the container (data is safe). |
+| **Remove DB** | `docker compose down postgres-db` | Stops and removes the container (data is safe). |
 | **View Logs** | `docker compose logs -f postgres-db` | Follows the database logs in real-time. |
 
 > [!IMPORTANT]
