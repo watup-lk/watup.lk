@@ -23,7 +23,7 @@ func (r *PostgresRepo) RecordVote(ctx context.Context, submissionID, userID, vot
 
 	// 1. Insert the vote (Conflict handles the "one vote per user" rule)
 	query := `
-		INSERT INTO community_schema.votes (submission_id, user_id, vote_type)
+		INSERT INTO votes (submission_id, user_id, vote_type)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (submission_id, user_id) DO UPDATE SET vote_type = $3`
 	
@@ -34,7 +34,7 @@ func (r *PostgresRepo) RecordVote(ctx context.Context, submissionID, userID, vot
 
 	// 2. Count total upvotes for the threshold check
 	var count int
-	countQuery := `SELECT COUNT(*) FROM community_schema.votes WHERE submission_id = $1 AND vote_type = 'UPVOTE'`
+	countQuery := `SELECT COUNT(*) FROM votes WHERE submission_id = $1 AND vote_type = 'UPVOTE'`
 	err = tx.QueryRowContext(ctx, countQuery, submissionID).Scan(&count)
 	if err != nil {
 		return 0, err

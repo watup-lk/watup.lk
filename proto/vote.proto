@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package v1;
 
-option go_package = "github.com/padi-lk/vote-service/api/proto/v1";
+option go_package = "github.com/watup-lk/vote-service/api/proto/v1";
 
 service VoteService {
   // Records a user's vote for a specific salary submission
@@ -16,7 +16,6 @@ message RecordVoteRequest {
     DOWNVOTE = 1;
   }
   VoteType vote_type = 2;
-  // Note: user_id is extracted from gRPC Metadata (JWT) by the service
 }
 
 message RecordVoteResponse {

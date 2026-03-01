@@ -6,15 +6,15 @@ import (
 	"os"
 	"strconv"
 
-	v1 "github.com/padi-lk/vote-service/api/proto/v1"
-	"github.com/padi-lk/vote-service/internal/kafka"
-	"github.com/padi-lk/vote-service/internal/repository"
+	v1 "github.com/watup-lk/vote-service/api/proto/v1"
+	"github.com/watup-lk/vote-service/internal/kafka"
+	"github.com/watup-lk/vote-service/internal/repository"
 )
 
 type VoteService struct {
 	v1.UnimplementedVoteServiceServer
-	repo              *repository.PostgresRepo
-	kafka             *kafka.Producer
+	repo *repository.PostgresRepo
+	kafka *kafka.Producer
 	approvalThreshold int
 }
 
@@ -26,15 +26,14 @@ func NewVoteService(repo *repository.PostgresRepo, k *kafka.Producer) *VoteServi
 	} // Default fallback
 
 	return &VoteService{
-		repo:              repo,
-		kafka:             k,
+		repo: repo,
+		kafka: k,
 		approvalThreshold: threshold,
 	}
 }
 
 func (s *VoteService) RecordVote(ctx context.Context, req *v1.RecordVoteRequest) (*v1.RecordVoteResponse, error) {
-	// In a real scenario, extract UserID from gRPC metadata (JWT)
-	userID := "user-uuid-from-context"
+	userID := ctx.Value("user_id").(string)
 
 	currentUpvotes, err := s.repo.RecordVote(ctx, req.SubmissionId, userID, req.VoteType.String())
 	if err != nil {
@@ -51,8 +50,8 @@ func (s *VoteService) RecordVote(ctx context.Context, req *v1.RecordVoteRequest)
 	}
 
 	return &v1.RecordVoteResponse{
-		Success:          true,
-		Message:          "Vote recorded successfully",
+		Success: true,
+		Message: "Vote recorded successfully",
 		ThresholdReached: thresholdReached,
 	}, nil
 }

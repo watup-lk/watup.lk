@@ -1,117 +1,90 @@
 # watup.lk
 
-A monorepo managed with [Meta](https://github.com/mateodelnorte/meta) containing multiple services for the watup.lk platform.
+A monorepo containing multiple services for the watup.lk platform. This repository manages multiple sub-projects.
 
 ## Projects
 
-This monorepo contains the following projects:
-- **watup-fe**: Frontend application
-- **identity-service**: Identity and authentication service
+This monorepo contains the following core services and applications:
 
-## Prerequisites
-
-⚠️ **Important**: This project requires **Node.js v18.17.x** due to compatibility issues with Meta on newer Node versions.
-
-You can use [nvm](https://github.com/nvm-sh/nvm) (Node Version Manager) to manage multiple Node versions:
-
-```bash
-# Install Node v18.17.x
-nvm install 18.17.0
-nvm use 18.17.0
-```
-
-### Install Meta Globally
-
-Meta must be installed globally to manage this monorepo:
-
-```bash
-npm install -g meta
-```
-
-
-## Getting Started
-
-### First Time Setup
-
-If you're setting up this project for the first time:
-
-1. **Clone the meta repository**:
-   ```bash
-   git clone https://github.com/watup-lk/watup.lk.git
-   cd watup.lk
-   ```
-
-2. **Install Meta dependencies**:
-   ```bash
-   npm i
-   ```
-
-3. **Clone all child repositories**:
-   ```bash
-   meta git update
-   ```
-
-This will clone all the repositories defined in the `.meta` file into their respective directories.
-
-### Updating Repositories
-
-To pull the latest changes from all repositories:
-
-```bash
-meta git update
-```
-
-## Working with Meta
-
-Meta allows you to run git commands across all child repositories simultaneously.
-
-### Common Commands
-
-- **Check status of all repos**:
-  ```bash
-  meta git status
-  ```
-
-- **Pull latest changes**:
-  ```bash
-  meta git pull
-  ```
-
-- **Create a branch across all repos**:
-  ```bash
-  meta git checkout -b feature/new-feature
-  ```
-
-- **Run npm commands across all repos**:
-  ```bash
-  meta npm install
-  meta npm run build
-  ```
-
-- **Execute custom commands**:
-  ```bash
-  meta exec "your-command-here"
-  ```
+- **watup-fe**: Frontend application.
+- **identity-service**: Identity and authentication service.
+- **vote-service**: Voting service.
 
 ## Project Structure
 
-```
+```text
 watup.lk/
-├── .meta                 # Meta configuration file
+├── identity-service/    # Identity and authentication service
+├── infra-db/            # Database initialization scripts and Docker config
+├── proto/               # Protocol Buffers (gRPC definitions)
+├── vote-service/        # Voting service
 ├── watup-fe/            # Frontend application
-├── identity-service/    # Identity service
-├── package.json         # Meta dependencies
-└── README.md           # This file
+├── docker-compose.yml   # Multi-service container orchestration
+├── package.json         # Node dependencies
+└── README.md            # This file
 ```
 
-## Additional Resources
+## Getting Started
 
-- [Meta Documentation](https://github.com/mateodelnorte/meta)
-- [Meta Git Plugin](https://github.com/mateodelnorte/meta-git)
+Use these commands from the root directory to manage all Watup.lk microservices (Frontend, Identity, Vote, etc.) simultaneously.
+
+### Service Management
+
+```bash
+# Start all services and the database in the background
+docker compose up -d
+
+# Rebuild images and start (Required after changing service code)
+docker compose up -d --build
+
+# Check the status of all containers
+docker compose ps
+```
+
+### Stopping and Teardown
+
+```bash
+# Stop all services gracefully
+docker compose stop
+
+# Shut down all services (stops and removes containers)
+docker compose down
+
+# FULL RESET: Deletes all containers, networks, and LOCAL DATA
+docker compose down -v
+```
+
+## Proto Definitions & Code Generation
+
+All gRPC service definitions are stored in the root `proto/` directory. This ensures a single source of truth for service contracts across all microservices.
+
+### Workflow
+
+1. **Add/Update Protos**: Place your `.proto` files in the root `proto/` directory.
+2. **Generate Code**: Navigate to the specific service directory (e.g., `vote-service`) and run the code generation command.
+
+## Database
+
+This project uses a containerized architecture to ensure a consistent development environment across the team. The core data layer is powered by PostgreSQL 16 (Alpine), managed via Docker.
+
+We use a single database instance with multiple logical schemas to provide data isolation between microservices while maintaining a lightweight footprint for local development.
+
+### Database Commands
+
+| Action | Command | Description |
+| --- | --- | --- |
+| **Start DB** | `docker compose up -d postgres-db` | Starts the Postgres container in the background. |
+| **Stop DB** | `docker compose stop postgres-db` | Gracefully stops the DB (preserves container state). |
+| **Resume DB** | `docker compose start postgres-db` | Quickly starts the stopped DB container. |
+| **Remove DB** | `docker compose down postgres-db` | Stops and removes the container (data is safe). |
+| **View Logs** | `docker compose logs -f postgres-db` | Follows the database logs in real-time. |
+
+> [!IMPORTANT]
+> **Initialization:** On the first run, Docker executes scripts in `./infra-db/init-scripts/` to create schemas (`vote_schema`, `identity_schema`, etc.). If you modify these scripts, you must run `docker compose down -v` to reset the database and trigger re-initialization.
 
 ## Contributing
 
 When contributing to this monorepo, please ensure you:
-1. Keep all repositories in sync
-2. Test changes across affected services
-3. Follow the established coding standards for each project
+1. Keep all repositories in sync.
+2. Test changes across affected services.
+3. Follow the established coding standards for each project.

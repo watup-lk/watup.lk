@@ -1,8 +1,9 @@
-module github.com/padi-lk/vote-service
+module github.com/watup-lk/vote-service
 
-go 1.25.0
+go 1.24.0
 
 require (
+	github.com/lib/pq v1.11.2
 	github.com/segmentio/kafka-go v0.4.50
 	google.golang.org/grpc v1.79.1
 	google.golang.org/protobuf v1.36.11
