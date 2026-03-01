@@ -11,8 +11,10 @@ var ErrNotFound = errors.New("record not found")
 
 type User struct {
 	ID           string
+	Name         string
 	Email        string
 	PasswordHash string
+	Age          *int // nullable
 	IsActive     bool
 	CreatedAt    time.Time
 }
@@ -34,11 +36,11 @@ func NewPostgresRepo(db *sql.DB) *PostgresRepo {
 }
 
 // CreateUser inserts a new user. Caller must ensure the email does not already exist.
-func (r *PostgresRepo) CreateUser(ctx context.Context, id, email, passwordHash string) error {
+func (r *PostgresRepo) CreateUser(ctx context.Context, id, name, email, passwordHash string, age *int) error {
 	const q = `
-		INSERT INTO identity_schema.users (id, email, password_hash)
-		VALUES ($1, $2, $3)`
-	_, err := r.db.ExecContext(ctx, q, id, email, passwordHash)
+		INSERT INTO identity_schema.users (id, name, email, password_hash, age)
+		VALUES ($1, $2, $3, $4, $5)`
+	_, err := r.db.ExecContext(ctx, q, id, name, email, passwordHash, age)
 	return err
 }
 
@@ -53,12 +55,12 @@ func (r *PostgresRepo) UserExistsByEmail(ctx context.Context, email string) (boo
 // FindUserByEmail retrieves a user by their email address.
 func (r *PostgresRepo) FindUserByEmail(ctx context.Context, email string) (*User, error) {
 	const q = `
-		SELECT id, email, password_hash, is_active, created_at
+		SELECT id, name, email, password_hash, age, is_active, created_at
 		FROM identity_schema.users
 		WHERE email = $1`
 	u := &User{}
 	err := r.db.QueryRowContext(ctx, q, email).Scan(
-		&u.ID, &u.Email, &u.PasswordHash, &u.IsActive, &u.CreatedAt,
+		&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.Age, &u.IsActive, &u.CreatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -69,12 +71,12 @@ func (r *PostgresRepo) FindUserByEmail(ctx context.Context, email string) (*User
 // FindUserByID retrieves a user by their UUID.
 func (r *PostgresRepo) FindUserByID(ctx context.Context, id string) (*User, error) {
 	const q = `
-		SELECT id, email, password_hash, is_active, created_at
+		SELECT id, name, email, password_hash, age, is_active, created_at
 		FROM identity_schema.users
 		WHERE id = $1`
 	u := &User{}
 	err := r.db.QueryRowContext(ctx, q, id).Scan(
-		&u.ID, &u.Email, &u.PasswordHash, &u.IsActive, &u.CreatedAt,
+		&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.Age, &u.IsActive, &u.CreatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound

@@ -59,8 +59,10 @@ func NewAuthHandler(svc *service.IdentityService) *AuthHandler {
 // --- Request / Response types ---
 
 type signupRequest struct {
+	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Age      *int   `json:"age,omitempty"`
 }
 
 type signupResponse struct {
@@ -106,6 +108,11 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
 	if msg := validateEmail(req.Email); msg != "" {
 		writeError(w, http.StatusBadRequest, msg)
 		return
@@ -114,8 +121,12 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
+	if req.Age != nil && (*req.Age < 13 || *req.Age > 120) {
+		writeError(w, http.StatusBadRequest, "age must be between 13 and 120")
+		return
+	}
 
-	result, err := h.svc.Signup(r.Context(), req.Email, req.Password, clientIP(r))
+	result, err := h.svc.Signup(r.Context(), req.Name, req.Email, req.Password, clientIP(r), req.Age)
 	if err != nil {
 		if errors.Is(err, service.ErrUserAlreadyExists) {
 			writeError(w, http.StatusConflict, err.Error())

@@ -5,8 +5,10 @@
 -- Users table: stores credentials and account status
 CREATE TABLE IF NOT EXISTS identity_schema.users (
     id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    name          VARCHAR(100) NOT NULL,             -- display name
     email         VARCHAR(255) UNIQUE NOT NULL,
-    password_hash TEXT         NOT NULL,    -- bcrypt hash, never plain text
+    password_hash TEXT         NOT NULL,              -- bcrypt hash, never plain text
+    age           SMALLINT     CHECK (age BETWEEN 13 AND 120),   -- optional
     is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()

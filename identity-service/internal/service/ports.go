@@ -11,7 +11,7 @@ import (
 // Using an interface allows the service to be tested with a mock
 // without needing a real PostgreSQL database.
 type Repo interface {
-	CreateUser(ctx context.Context, id, email, passwordHash string) error
+	CreateUser(ctx context.Context, id, name, email, passwordHash string, age *int) error
 	UserExistsByEmail(ctx context.Context, email string) (bool, error)
 	FindUserByEmail(ctx context.Context, email string) (*repository.User, error)
 	FindUserByID(ctx context.Context, id string) (*repository.User, error)

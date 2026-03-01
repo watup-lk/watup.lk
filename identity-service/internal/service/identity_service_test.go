@@ -29,8 +29,8 @@ func newMockRepo() *mockRepo {
 	}
 }
 
-func (m *mockRepo) CreateUser(_ context.Context, id, email, passwordHash string) error {
-	u := &repository.User{ID: id, Email: email, PasswordHash: passwordHash, IsActive: true, CreatedAt: time.Now()}
+func (m *mockRepo) CreateUser(_ context.Context, id, name, email, passwordHash string, age *int) error {
+	u := &repository.User{ID: id, Name: name, Email: email, PasswordHash: passwordHash, Age: age, IsActive: true, CreatedAt: time.Now()}
 	m.users[email] = u
 	m.byID[id] = u
 	return nil
@@ -174,7 +174,7 @@ func TestSignup_Success(t *testing.T) {
 	svc, _, pub := newTestService()
 	ctx := context.Background()
 
-	result, err := svc.Signup(ctx, "alice@example.com", "SecurePass1", testIP)
+	result, err := svc.Signup(ctx, "Alice", "alice@example.com", "SecurePass1", testIP, nil)
 	if err != nil {
 		t.Fatalf("Signup() unexpected error: %v", err)
 	}
@@ -192,12 +192,12 @@ func TestSignup_DuplicateEmail(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_, err := svc.Signup(ctx, "bob@example.com", "SecurePass1", testIP)
+	_, err := svc.Signup(ctx, "Bob", "bob@example.com", "SecurePass1", testIP, nil)
 	if err != nil {
 		t.Fatalf("first Signup() unexpected error: %v", err)
 	}
 
-	_, err = svc.Signup(ctx, "bob@example.com", "AnotherPass2", testIP)
+	_, err = svc.Signup(ctx, "Bob2", "bob@example.com", "AnotherPass2", testIP, nil)
 	if !errors.Is(err, service.ErrUserAlreadyExists) {
 		t.Errorf("expected ErrUserAlreadyExists, got %v", err)
 	}
@@ -209,7 +209,7 @@ func TestLogin_Success(t *testing.T) {
 	svc, _, pub := newTestService()
 	ctx := context.Background()
 
-	_, err := svc.Signup(ctx, "carol@example.com", "CarolPass9", testIP)
+	_, err := svc.Signup(ctx, "Carol", "carol@example.com", "CarolPass9", testIP, nil)
 	if err != nil {
 		t.Fatalf("Signup() error: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_, err := svc.Signup(ctx, "dave@example.com", "DavePass7", testIP)
+	_, err := svc.Signup(ctx, "Dave", "dave@example.com", "DavePass7", testIP, nil)
 	if err != nil {
 		t.Fatalf("Signup() error: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestLogin_DisabledAccount(t *testing.T) {
 	svc, repo, _ := newTestService()
 	ctx := context.Background()
 
-	_, err := svc.Signup(ctx, "eve@example.com", "EvePass77", testIP)
+	_, err := svc.Signup(ctx, "Eve", "eve@example.com", "EvePass77", testIP, nil)
 	if err != nil {
 		t.Fatalf("Signup() error: %v", err)
 	}
@@ -282,7 +282,7 @@ func TestValidateAccessToken_Valid(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	result, _ := svc.Signup(ctx, "frank@example.com", "FrankPass1", testIP)
+	result, _ := svc.Signup(ctx, "Frank", "frank@example.com", "FrankPass1", testIP, nil)
 	pair, _ := svc.Login(ctx, "frank@example.com", "FrankPass1", testIP)
 
 	userID, err := svc.ValidateAccessToken(ctx, pair.AccessToken)
@@ -320,7 +320,7 @@ func TestRefresh_Success(t *testing.T) {
 	svc, _, pub := newTestService()
 	ctx := context.Background()
 
-	_, _ = svc.Signup(ctx, "grace@example.com", "GracePass2", testIP)
+	_, _ = svc.Signup(ctx, "Grace", "grace@example.com", "GracePass2", testIP, nil)
 	pair1, _ := svc.Login(ctx, "grace@example.com", "GracePass2", testIP)
 
 	pair2, err := svc.Refresh(ctx, pair1.RefreshToken, testIP)
@@ -341,7 +341,7 @@ func TestRefresh_RevokedToken(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_, _ = svc.Signup(ctx, "henry@example.com", "HenryPass3", testIP)
+	_, _ = svc.Signup(ctx, "Henry", "henry@example.com", "HenryPass3", testIP, nil)
 	pair, _ := svc.Login(ctx, "henry@example.com", "HenryPass3", testIP)
 
 	// First refresh — should succeed and revoke the original token
@@ -363,7 +363,7 @@ func TestLogout_RevokesToken(t *testing.T) {
 	svc, _, pub := newTestService()
 	ctx := context.Background()
 
-	_, _ = svc.Signup(ctx, "iris@example.com", "IrisPass44", testIP)
+	_, _ = svc.Signup(ctx, "Iris", "iris@example.com", "IrisPass44", testIP, nil)
 	pair, _ := svc.Login(ctx, "iris@example.com", "IrisPass44", testIP)
 
 	if err := svc.Logout(ctx, pair.RefreshToken, testIP); err != nil {

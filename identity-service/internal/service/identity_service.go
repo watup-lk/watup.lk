@@ -55,7 +55,7 @@ func NewIdentityService(repo Repo, k EventPublisher, cfg *config.Config) *Identi
 }
 
 // Signup creates a new user account. Returns the new user's UUID.
-func (s *IdentityService) Signup(ctx context.Context, email, password, clientIP string) (*SignupResult, error) {
+func (s *IdentityService) Signup(ctx context.Context, name, email, password, clientIP string, age *int) (*SignupResult, error) {
 	exists, err := s.repo.UserExistsByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("checking email: %w", err)
@@ -70,7 +70,7 @@ func (s *IdentityService) Signup(ctx context.Context, email, password, clientIP 
 	}
 
 	userID := uuid.New().String()
-	if err := s.repo.CreateUser(ctx, userID, email, string(hash)); err != nil {
+	if err := s.repo.CreateUser(ctx, userID, name, email, string(hash), age); err != nil {
 		return nil, fmt.Errorf("creating user: %w", err)
 	}
 
