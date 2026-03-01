@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -54,7 +55,7 @@ func NewIdentityService(repo Repo, k EventPublisher, cfg *config.Config) *Identi
 }
 
 // Signup creates a new user account. Returns the new user's UUID.
-func (s *IdentityService) Signup(ctx context.Context, email, password string) (*SignupResult, error) {
+func (s *IdentityService) Signup(ctx context.Context, email, password, clientIP string) (*SignupResult, error) {
 	exists, err := s.repo.UserExistsByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("checking email: %w", err)
@@ -73,25 +74,29 @@ func (s *IdentityService) Signup(ctx context.Context, email, password string) (*
 		return nil, fmt.Errorf("creating user: %w", err)
 	}
 
-	// Fire-and-forget: publish Kafka event without blocking the response
+	// Fire-and-forget: publish Kafka event and audit log without blocking the response
 	go s.kafka.PublishUserRegistered(context.Background(), userID)
+	go s.auditLog(userID, "signup", true, clientIP)
 
 	return &SignupResult{UserID: userID}, nil
 }
 
 // Login validates credentials and returns a token pair on success.
-func (s *IdentityService) Login(ctx context.Context, email, password string) (*TokenPair, error) {
+func (s *IdentityService) Login(ctx context.Context, email, password, clientIP string) (*TokenPair, error) {
 	user, err := s.repo.FindUserByEmail(ctx, email)
 	if err != nil {
 		// Return generic error — do not reveal whether the email exists
+		go s.auditLog("", "login_failed", false, clientIP)
 		return nil, ErrInvalidCredentials
 	}
 
 	if !user.IsActive {
+		go s.auditLog(user.ID, "login_failed", false, clientIP)
 		return nil, ErrAccountDisabled
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		go s.auditLog(user.ID, "login_failed", false, clientIP)
 		return nil, ErrInvalidCredentials
 	}
 
@@ -101,12 +106,13 @@ func (s *IdentityService) Login(ctx context.Context, email, password string) (*T
 	}
 
 	go s.kafka.PublishUserLogin(context.Background(), user.ID)
+	go s.auditLog(user.ID, "login", true, clientIP)
 
 	return pair, nil
 }
 
 // Refresh rotates a refresh token and returns a new token pair.
-func (s *IdentityService) Refresh(ctx context.Context, rawRefreshToken string) (*TokenPair, error) {
+func (s *IdentityService) Refresh(ctx context.Context, rawRefreshToken, clientIP string) (*TokenPair, error) {
 	tokenHash := hashToken(rawRefreshToken)
 
 	stored, err := s.repo.FindRefreshToken(ctx, tokenHash)
@@ -122,13 +128,33 @@ func (s *IdentityService) Refresh(ctx context.Context, rawRefreshToken string) (
 		return nil, fmt.Errorf("revoking old token: %w", err)
 	}
 
-	return s.generateTokenPair(ctx, stored.UserID)
+	pair, err := s.generateTokenPair(ctx, stored.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	go s.kafka.PublishTokenRefresh(context.Background(), stored.UserID)
+	go s.auditLog(stored.UserID, "token_refresh", true, clientIP)
+
+	return pair, nil
 }
 
 // Logout revokes the given refresh token.
-func (s *IdentityService) Logout(ctx context.Context, rawRefreshToken string) error {
+func (s *IdentityService) Logout(ctx context.Context, rawRefreshToken, clientIP string) error {
 	tokenHash := hashToken(rawRefreshToken)
-	return s.repo.RevokeRefreshToken(ctx, tokenHash)
+
+	// Look up the token to get the user ID for audit logging
+	stored, _ := s.repo.FindRefreshToken(ctx, tokenHash)
+	if err := s.repo.RevokeRefreshToken(ctx, tokenHash); err != nil {
+		return err
+	}
+
+	if stored != nil {
+		go s.kafka.PublishUserLogout(context.Background(), stored.UserID)
+		go s.auditLog(stored.UserID, "logout", true, clientIP)
+	}
+
+	return nil
 }
 
 // ValidateAccessToken parses and validates a JWT, returning the user_id on success.
@@ -197,4 +223,13 @@ func (s *IdentityService) generateTokenPair(ctx context.Context, userID string) 
 func hashToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return fmt.Sprintf("%x", h)
+}
+
+// auditLog records an auth event in the database. Fire-and-forget — errors are logged, not propagated.
+func (s *IdentityService) auditLog(userID, eventType string, success bool, ipAddress string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := s.repo.InsertAuditLog(ctx, userID, eventType, success, ipAddress); err != nil {
+		log.Printf("[audit] failed to log %s for user %s: %v", eventType, userID, err)
+	}
 }

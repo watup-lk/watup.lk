@@ -121,6 +121,29 @@ func (r *PostgresRepo) RevokeAllUserTokens(ctx context.Context, userID string) e
 	return err
 }
 
+// InsertAuditLog records a significant auth event (signup, login, logout, etc.)
+// in the identity_schema.audit_logs table for security monitoring.
+// userID may be empty for events where the user is unknown (e.g. login_failed with unknown email).
+func (r *PostgresRepo) InsertAuditLog(ctx context.Context, userID, eventType string, success bool, ipAddress string) error {
+	const q = `
+		INSERT INTO identity_schema.audit_logs (user_id, event_type, success, ip_address)
+		VALUES ($1, $2, $3, $4::inet)`
+
+	// Convert empty strings to nil so PostgreSQL stores NULL
+	// (empty string is not a valid UUID or INET value)
+	var uid interface{} = userID
+	if userID == "" {
+		uid = nil
+	}
+	var ip interface{} = ipAddress
+	if ipAddress == "" {
+		ip = nil
+	}
+
+	_, err := r.db.ExecContext(ctx, q, uid, eventType, success, ip)
+	return err
+}
+
 // Ping checks the database connection (used by readiness probe).
 func (r *PostgresRepo) Ping(ctx context.Context) error {
 	return r.db.PingContext(ctx)

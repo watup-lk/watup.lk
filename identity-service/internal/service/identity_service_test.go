@@ -15,9 +15,9 @@ import (
 // ── Mock Repository ───────────────────────────────────────────────────────────
 
 type mockRepo struct {
-	users  map[string]*repository.User  // keyed by email
-	byID   map[string]*repository.User  // keyed by id
-	tokens map[string]*repository.RefreshToken // keyed by token_hash
+	users   map[string]*repository.User         // keyed by email
+	byID    map[string]*repository.User         // keyed by id
+	tokens  map[string]*repository.RefreshToken // keyed by token_hash
 	pingErr error
 }
 
@@ -88,6 +88,10 @@ func (m *mockRepo) RevokeAllUserTokens(_ context.Context, userID string) error {
 	return nil
 }
 
+func (m *mockRepo) InsertAuditLog(_ context.Context, _, _ string, _ bool, _ string) error {
+	return nil
+}
+
 func (m *mockRepo) Ping(_ context.Context) error {
 	return m.pingErr
 }
@@ -98,6 +102,8 @@ type mockPublisher struct {
 	mu               sync.Mutex
 	registeredEvents []string
 	loginEvents      []string
+	logoutEvents     []string
+	refreshEvents    []string
 }
 
 func (m *mockPublisher) PublishUserRegistered(_ context.Context, userID string) {
@@ -108,6 +114,16 @@ func (m *mockPublisher) PublishUserRegistered(_ context.Context, userID string) 
 func (m *mockPublisher) PublishUserLogin(_ context.Context, userID string) {
 	m.mu.Lock()
 	m.loginEvents = append(m.loginEvents, userID)
+	m.mu.Unlock()
+}
+func (m *mockPublisher) PublishUserLogout(_ context.Context, userID string) {
+	m.mu.Lock()
+	m.logoutEvents = append(m.logoutEvents, userID)
+	m.mu.Unlock()
+}
+func (m *mockPublisher) PublishTokenRefresh(_ context.Context, userID string) {
+	m.mu.Lock()
+	m.refreshEvents = append(m.refreshEvents, userID)
 	m.mu.Unlock()
 }
 func (m *mockPublisher) Close() {}
@@ -121,6 +137,16 @@ func (m *mockPublisher) countLogin() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return len(m.loginEvents)
+}
+func (m *mockPublisher) countLogout() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.logoutEvents)
+}
+func (m *mockPublisher) countRefresh() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.refreshEvents)
 }
 
 // ── Test Helpers ──────────────────────────────────────────────────────────────
@@ -140,13 +166,15 @@ func newTestService() (*service.IdentityService, *mockRepo, *mockPublisher) {
 	return svc, repo, pub
 }
 
+const testIP = "127.0.0.1"
+
 // ── Signup Tests ──────────────────────────────────────────────────────────────
 
 func TestSignup_Success(t *testing.T) {
 	svc, _, pub := newTestService()
 	ctx := context.Background()
 
-	result, err := svc.Signup(ctx, "alice@example.com", "SecurePass1")
+	result, err := svc.Signup(ctx, "alice@example.com", "SecurePass1", testIP)
 	if err != nil {
 		t.Fatalf("Signup() unexpected error: %v", err)
 	}
@@ -164,12 +192,12 @@ func TestSignup_DuplicateEmail(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_, err := svc.Signup(ctx, "bob@example.com", "SecurePass1")
+	_, err := svc.Signup(ctx, "bob@example.com", "SecurePass1", testIP)
 	if err != nil {
 		t.Fatalf("first Signup() unexpected error: %v", err)
 	}
 
-	_, err = svc.Signup(ctx, "bob@example.com", "AnotherPass2")
+	_, err = svc.Signup(ctx, "bob@example.com", "AnotherPass2", testIP)
 	if !errors.Is(err, service.ErrUserAlreadyExists) {
 		t.Errorf("expected ErrUserAlreadyExists, got %v", err)
 	}
@@ -181,12 +209,12 @@ func TestLogin_Success(t *testing.T) {
 	svc, _, pub := newTestService()
 	ctx := context.Background()
 
-	_, err := svc.Signup(ctx, "carol@example.com", "CarolPass9")
+	_, err := svc.Signup(ctx, "carol@example.com", "CarolPass9", testIP)
 	if err != nil {
 		t.Fatalf("Signup() error: %v", err)
 	}
 
-	pair, err := svc.Login(ctx, "carol@example.com", "CarolPass9")
+	pair, err := svc.Login(ctx, "carol@example.com", "CarolPass9", testIP)
 	if err != nil {
 		t.Fatalf("Login() unexpected error: %v", err)
 	}
@@ -210,12 +238,12 @@ func TestLogin_WrongPassword(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_, err := svc.Signup(ctx, "dave@example.com", "DavePass7")
+	_, err := svc.Signup(ctx, "dave@example.com", "DavePass7", testIP)
 	if err != nil {
 		t.Fatalf("Signup() error: %v", err)
 	}
 
-	_, err = svc.Login(ctx, "dave@example.com", "WrongPassword")
+	_, err = svc.Login(ctx, "dave@example.com", "WrongPassword", testIP)
 	if !errors.Is(err, service.ErrInvalidCredentials) {
 		t.Errorf("expected ErrInvalidCredentials, got %v", err)
 	}
@@ -225,7 +253,7 @@ func TestLogin_UnknownEmail(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_, err := svc.Login(ctx, "ghost@example.com", "AnyPass1")
+	_, err := svc.Login(ctx, "ghost@example.com", "AnyPass1", testIP)
 	if !errors.Is(err, service.ErrInvalidCredentials) {
 		t.Errorf("expected ErrInvalidCredentials for unknown email, got %v", err)
 	}
@@ -235,14 +263,14 @@ func TestLogin_DisabledAccount(t *testing.T) {
 	svc, repo, _ := newTestService()
 	ctx := context.Background()
 
-	_, err := svc.Signup(ctx, "eve@example.com", "EvePass77")
+	_, err := svc.Signup(ctx, "eve@example.com", "EvePass77", testIP)
 	if err != nil {
 		t.Fatalf("Signup() error: %v", err)
 	}
 	// Disable the account directly in the mock
 	repo.users["eve@example.com"].IsActive = false
 
-	_, err = svc.Login(ctx, "eve@example.com", "EvePass77")
+	_, err = svc.Login(ctx, "eve@example.com", "EvePass77", testIP)
 	if !errors.Is(err, service.ErrAccountDisabled) {
 		t.Errorf("expected ErrAccountDisabled, got %v", err)
 	}
@@ -254,8 +282,8 @@ func TestValidateAccessToken_Valid(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	result, _ := svc.Signup(ctx, "frank@example.com", "FrankPass1")
-	pair, _ := svc.Login(ctx, "frank@example.com", "FrankPass1")
+	result, _ := svc.Signup(ctx, "frank@example.com", "FrankPass1", testIP)
+	pair, _ := svc.Login(ctx, "frank@example.com", "FrankPass1", testIP)
 
 	userID, err := svc.ValidateAccessToken(ctx, pair.AccessToken)
 	if err != nil {
@@ -289,18 +317,23 @@ func TestValidateAccessToken_Empty(t *testing.T) {
 // ── Refresh Token Tests ───────────────────────────────────────────────────────
 
 func TestRefresh_Success(t *testing.T) {
-	svc, _, _ := newTestService()
+	svc, _, pub := newTestService()
 	ctx := context.Background()
 
-	_, _ = svc.Signup(ctx, "grace@example.com", "GracePass2")
-	pair1, _ := svc.Login(ctx, "grace@example.com", "GracePass2")
+	_, _ = svc.Signup(ctx, "grace@example.com", "GracePass2", testIP)
+	pair1, _ := svc.Login(ctx, "grace@example.com", "GracePass2", testIP)
 
-	pair2, err := svc.Refresh(ctx, pair1.RefreshToken)
+	pair2, err := svc.Refresh(ctx, pair1.RefreshToken, testIP)
 	if err != nil {
 		t.Fatalf("Refresh() unexpected error: %v", err)
 	}
 	if pair2.AccessToken == pair1.AccessToken {
 		t.Error("Refresh() should return a new access token")
+	}
+
+	time.Sleep(10 * time.Millisecond)
+	if pub.countRefresh() != 1 {
+		t.Errorf("expected 1 refresh event, got %d", pub.countRefresh())
 	}
 }
 
@@ -308,17 +341,17 @@ func TestRefresh_RevokedToken(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_, _ = svc.Signup(ctx, "henry@example.com", "HenryPass3")
-	pair, _ := svc.Login(ctx, "henry@example.com", "HenryPass3")
+	_, _ = svc.Signup(ctx, "henry@example.com", "HenryPass3", testIP)
+	pair, _ := svc.Login(ctx, "henry@example.com", "HenryPass3", testIP)
 
 	// First refresh — should succeed and revoke the original token
-	_, err := svc.Refresh(ctx, pair.RefreshToken)
+	_, err := svc.Refresh(ctx, pair.RefreshToken, testIP)
 	if err != nil {
 		t.Fatalf("first Refresh() error: %v", err)
 	}
 
 	// Second use of the same token — should fail (revoked)
-	_, err = svc.Refresh(ctx, pair.RefreshToken)
+	_, err = svc.Refresh(ctx, pair.RefreshToken, testIP)
 	if !errors.Is(err, service.ErrInvalidToken) {
 		t.Errorf("expected ErrInvalidToken on reuse, got %v", err)
 	}
@@ -327,19 +360,24 @@ func TestRefresh_RevokedToken(t *testing.T) {
 // ── Logout Tests ──────────────────────────────────────────────────────────────
 
 func TestLogout_RevokesToken(t *testing.T) {
-	svc, _, _ := newTestService()
+	svc, _, pub := newTestService()
 	ctx := context.Background()
 
-	_, _ = svc.Signup(ctx, "iris@example.com", "IrisPass44")
-	pair, _ := svc.Login(ctx, "iris@example.com", "IrisPass44")
+	_, _ = svc.Signup(ctx, "iris@example.com", "IrisPass44", testIP)
+	pair, _ := svc.Login(ctx, "iris@example.com", "IrisPass44", testIP)
 
-	if err := svc.Logout(ctx, pair.RefreshToken); err != nil {
+	if err := svc.Logout(ctx, pair.RefreshToken, testIP); err != nil {
 		t.Fatalf("Logout() error: %v", err)
 	}
 
 	// Trying to refresh after logout should fail
-	_, err := svc.Refresh(ctx, pair.RefreshToken)
+	_, err := svc.Refresh(ctx, pair.RefreshToken, testIP)
 	if !errors.Is(err, service.ErrInvalidToken) {
 		t.Errorf("expected ErrInvalidToken after logout, got %v", err)
+	}
+
+	time.Sleep(10 * time.Millisecond)
+	if pub.countLogout() != 1 {
+		t.Errorf("expected 1 logout event, got %d", pub.countLogout())
 	}
 }

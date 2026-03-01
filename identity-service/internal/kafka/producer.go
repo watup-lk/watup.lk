@@ -12,6 +12,8 @@ import (
 const (
 	topicUserRegistered = "user.registered"
 	topicUserLogin      = "user.login"
+	topicUserLogout     = "user.logout"
+	topicTokenRefresh   = "user.token_refresh"
 )
 
 // userEvent is the Kafka message payload for user lifecycle events.
@@ -25,6 +27,8 @@ type userEvent struct {
 type Producer struct {
 	registeredWriter *kafka.Writer
 	loginWriter      *kafka.Writer
+	logoutWriter     *kafka.Writer
+	refreshWriter    *kafka.Writer
 }
 
 func NewProducer(brokers []string) *Producer {
@@ -39,6 +43,8 @@ func NewProducer(brokers []string) *Producer {
 	return &Producer{
 		registeredWriter: newWriter(topicUserRegistered),
 		loginWriter:      newWriter(topicUserLogin),
+		logoutWriter:     newWriter(topicUserLogout),
+		refreshWriter:    newWriter(topicTokenRefresh),
 	}
 }
 
@@ -50,6 +56,16 @@ func (p *Producer) PublishUserRegistered(ctx context.Context, userID string) {
 // PublishUserLogin sends a user.login event. Intended to be called in a goroutine.
 func (p *Producer) PublishUserLogin(ctx context.Context, userID string) {
 	p.publish(ctx, p.loginWriter, userID, "user.login")
+}
+
+// PublishUserLogout sends a user.logout event. Intended to be called in a goroutine.
+func (p *Producer) PublishUserLogout(ctx context.Context, userID string) {
+	p.publish(ctx, p.logoutWriter, userID, "user.logout")
+}
+
+// PublishTokenRefresh sends a user.token_refresh event. Intended to be called in a goroutine.
+func (p *Producer) PublishTokenRefresh(ctx context.Context, userID string) {
+	p.publish(ctx, p.refreshWriter, userID, "user.token_refresh")
 }
 
 func (p *Producer) publish(ctx context.Context, w *kafka.Writer, userID, eventType string) {
@@ -78,5 +94,11 @@ func (p *Producer) Close() {
 	}
 	if err := p.loginWriter.Close(); err != nil {
 		log.Printf("[kafka] error closing login writer: %v", err)
+	}
+	if err := p.logoutWriter.Close(); err != nil {
+		log.Printf("[kafka] error closing logout writer: %v", err)
+	}
+	if err := p.refreshWriter.Close(); err != nil {
+		log.Printf("[kafka] error closing refresh writer: %v", err)
 	}
 }

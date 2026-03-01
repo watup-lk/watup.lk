@@ -172,3 +172,31 @@ func (rl *RateLimiter) Limit(next http.Handler) http.Handler {
 	})
 }
 
+// ── CORS ─────────────────────────────────────────────────────────────────────
+
+// CORS handles Cross-Origin Resource Sharing for frontend/BFF integration.
+// In production, the allowed origins should match the ingress CORS configuration.
+func CORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		h := w.Header()
+		h.Set("Access-Control-Allow-Origin", origin)
+		h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-ID")
+		h.Set("Access-Control-Allow-Credentials", "true")
+		h.Set("Access-Control-Max-Age", "86400") // cache preflight for 24 hours
+
+		// Preflight requests — respond immediately without forwarding
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}

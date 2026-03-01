@@ -145,9 +145,10 @@ func startHTTPServer(ctx context.Context, cfg *config.Config, svc *service.Ident
 	topMux.HandleFunc("GET /health/live", healthH.Liveness)
 	topMux.HandleFunc("GET /health/ready", healthH.Readiness)
 
-	// SecurityHeaders, Metrics, RequestLogger apply to ALL routes (auth + health)
+	// CORS, SecurityHeaders, Metrics, RequestLogger apply to ALL routes (auth + health)
 	handler := middleware.Chain(
 		topMux,
+		middleware.CORS,
 		middleware.SecurityHeaders,
 		middleware.Metrics,
 		middleware.RequestLogger,

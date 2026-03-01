@@ -2,8 +2,10 @@
 # Kafka runs in the 'app' namespace alongside the microservices that produce/consume events.
 #
 # Topics used by the identity service:
-#   user.registered  — published when a user creates an account
-#   user.login       — published on each successful login (for audit/analytics)
+#   user.registered    — published when a user creates an account
+#   user.login         — published on each successful login
+#   user.logout        — published when a user logs out
+#   user.token_refresh — published on token refresh
 #
 # Topics used by vote-service:
 #   threshold-reached — published when a salary submission reaches the approval threshold
@@ -55,7 +57,7 @@ spec:
             - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
               value: "true"
             - name: KAFKA_LOG_RETENTION_HOURS
-              value: "168"    # 7 days
+              value: "168" # 7 days
           resources:
             requests:
               cpu: 250m

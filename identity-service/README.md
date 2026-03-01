@@ -8,6 +8,7 @@ The identity service is responsible for:
 - **User registration** — email + bcrypt-hashed password stored in `identity_schema`
 - **Authentication** — JWT access tokens (15 min) + opaque refresh tokens (7 days)
 - **Token validation** — called by the BFF on every authenticated request
+- **Audit logging** — all auth events (signup, login, login_failed, logout, token_refresh) recorded in `identity_schema.audit_logs`
 - **Privacy enforcement** — only `user_id` is ever shared with other services; email and password hash never leave this service
 
 ## Architecture
@@ -318,6 +319,7 @@ go run ./cmd/server/main.go
 | Refresh tokens | Opaque UUIDs stored as SHA-256 hashes — plaintext never persisted |
 | Token rotation | Old refresh token revoked on every refresh |
 | Rate limiting | Per-IP token bucket: 20 burst / 5 req/s + NGINX Ingress 10 RPS |
+| CORS | Configurable cross-origin support for frontend/BFF integration |
 | Security headers | OWASP recommended set (HSTS, CSP, X-Frame-Options, etc.) |
 | Service isolation | ClusterIP + NetworkPolicy — not reachable from outside the cluster |
 | Secrets | Azure Key Vault via Workload Identity — zero credentials in image |
@@ -331,8 +333,24 @@ go run ./cmd/server/main.go
 |-------|---------------|---------|
 | `user.registered` | Successful signup | `{user_id, event_type, timestamp}` |
 | `user.login` | Successful login | `{user_id, event_type, timestamp}` |
+| `user.logout` | Successful logout | `{user_id, event_type, timestamp}` |
+| `user.token_refresh` | Successful token refresh | `{user_id, event_type, timestamp}` |
 
 Events are fire-and-forget (goroutine) to avoid blocking the HTTP response.
+
+## Audit Logging
+
+All auth events are recorded in `identity_schema.audit_logs` for security monitoring:
+
+| Event | Logged On | Fields |
+|-------|-----------|--------|
+| `signup` | User creates account | user_id, ip_address, success |
+| `login` | Successful authentication | user_id, ip_address, success |
+| `login_failed` | Wrong password or disabled account | user_id (if known), ip_address, success=false |
+| `logout` | Token revocation | user_id, ip_address, success |
+| `token_refresh` | Token rotation | user_id, ip_address, success |
+
+Audit logs are written asynchronously (fire-and-forget) to avoid impacting response times.
 
 ---
 

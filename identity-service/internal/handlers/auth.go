@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -114,7 +115,7 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.svc.Signup(r.Context(), req.Email, req.Password)
+	result, err := h.svc.Signup(r.Context(), req.Email, req.Password, clientIP(r))
 	if err != nil {
 		if errors.Is(err, service.ErrUserAlreadyExists) {
 			writeError(w, http.StatusConflict, err.Error())
@@ -137,7 +138,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pair, err := h.svc.Login(r.Context(), req.Email, req.Password)
+	pair, err := h.svc.Login(r.Context(), req.Email, req.Password, clientIP(r))
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCredentials) || errors.Is(err, service.ErrAccountDisabled) {
 			writeError(w, http.StatusUnauthorized, "invalid credentials")
@@ -168,7 +169,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pair, err := h.svc.Refresh(r.Context(), req.RefreshToken)
+	pair, err := h.svc.Refresh(r.Context(), req.RefreshToken, clientIP(r))
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidToken) {
 			writeError(w, http.StatusUnauthorized, "invalid or expired refresh token")
@@ -199,7 +200,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.Logout(r.Context(), req.RefreshToken); err != nil {
+	if err := h.svc.Logout(r.Context(), req.RefreshToken, clientIP(r)); err != nil {
 		writeError(w, http.StatusInternalServerError, "logout failed")
 		return
 	}
@@ -228,6 +229,23 @@ func (h *AuthHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
 }
 
 // --- Helpers ---
+
+// clientIP extracts the client's IP address, preferring the X-Real-IP header
+// set by the NGINX Ingress controller, falling back to RemoteAddr.
+func clientIP(r *http.Request) string {
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		// X-Forwarded-For may contain multiple IPs; take the first (client) IP
+		return strings.SplitN(ip, ",", 2)[0]
+	}
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return ip
+}
 
 func extractBearerToken(r *http.Request) string {
 	auth := r.Header.Get("Authorization")

@@ -19,6 +19,7 @@ type Repo interface {
 	FindRefreshToken(ctx context.Context, tokenHash string) (*repository.RefreshToken, error)
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeAllUserTokens(ctx context.Context, userID string) error // used on password change / forced logout
+	InsertAuditLog(ctx context.Context, userID, eventType string, success bool, ipAddress string) error
 	Ping(ctx context.Context) error
 }
 
@@ -27,5 +28,7 @@ type Repo interface {
 type EventPublisher interface {
 	PublishUserRegistered(ctx context.Context, userID string)
 	PublishUserLogin(ctx context.Context, userID string)
+	PublishUserLogout(ctx context.Context, userID string)
+	PublishTokenRefresh(ctx context.Context, userID string)
 	Close()
 }

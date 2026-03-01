@@ -1,32 +1,45 @@
 # watup.lk
 
-A monorepo containing multiple services for the watup.lk platform. This repository manages multiple sub-projects.
+A microservice-based salary transparency platform for Sri Lanka, built as a cloud-native application deployed on Azure Kubernetes Service (AKS). Users can anonymously submit salary data, search and filter entries, and vote on their trustworthiness.
 
 ## Projects
 
 This monorepo contains the following core services and applications:
 
-- **watup-fe**: Frontend application.
-- **identity-service**: Identity and authentication service.
-- **vote-service**: Voting service.
+- **watup-fe**: Frontend application (Next.js) — UI for salary search, submission, and community voting.
+- **identity-service**: Identity and authentication service (Go) — user signup/login, JWT tokens, gRPC token validation, Kafka event publishing, audit logging.
+- **vote-service**: Voting service (Go) — upvote/downvote salary submissions, approval threshold.
+- **infra-db**: PostgreSQL 16 with schema-per-service isolation (identity, salary, community schemas).
 
 ## Project Structure
 
 ```text
 watup.lk/
-├── identity-service/    # Identity and authentication service
+├── identity-service/    # Identity and authentication service (Go)
 ├── infra-db/            # Database initialization scripts and Docker config
 ├── proto/               # Protocol Buffers (gRPC definitions)
-├── vote-service/        # Voting service
-├── watup-fe/            # Frontend application
+├── vote-service/        # Voting service (Go)
+├── watup-fe/            # Frontend application (Next.js)
 ├── docker-compose.yml   # Multi-service container orchestration
+├── .env                 # Environment variables for docker-compose
 ├── package.json         # Node dependencies
 └── README.md            # This file
 ```
 
 ## Getting Started
 
-Use these commands from the root directory to manage all Watup.lk microservices (Frontend, Identity, Vote, etc.) simultaneously.
+### Prerequisites
+
+A `.env` file is required in the project root for docker-compose. It should contain:
+
+```env
+POSTGRES_USER=watup_user
+POSTGRES_PASSWORD=watup_dev_password
+POSTGRES_DB=watup_db
+```
+
+> [!NOTE]
+> A `.env` file is included by default. Update the password before deploying to production.
 
 ### Service Management
 
@@ -80,7 +93,21 @@ We use a single database instance with multiple logical schemas to provide data 
 | **View Logs** | `docker compose logs -f postgres-db` | Follows the database logs in real-time. |
 
 > [!IMPORTANT]
-> **Initialization:** On the first run, Docker executes scripts in `./infra-db/init-scripts/` to create schemas (`vote_schema`, `identity_schema`, etc.). If you modify these scripts, you must run `docker compose down -v` to reset the database and trigger re-initialization.
+> **Initialization:** On the first run, Docker executes scripts in `./infra-db/init-scripts/` to create schemas (`identity_schema`, `salary_schema`, `community_schema`). If you modify these scripts, you must run `docker compose down -v` to reset the database and trigger re-initialization.
+
+## Kafka Event Bus
+
+Microservices communicate asynchronously via Apache Kafka (KRaft mode — no ZooKeeper). The following topics are used:
+
+| Topic | Producer | Description |
+|-------|----------|-------------|
+| `user.registered` | identity-service | Published when a new user signs up |
+| `user.login` | identity-service | Published on each successful login |
+| `user.logout` | identity-service | Published when a user logs out |
+| `user.token_refresh` | identity-service | Published on token refresh |
+| `threshold-reached` | vote-service | Published when a submission reaches the approval threshold |
+
+Kafka UI is available at `http://localhost:8086` when running with docker-compose.
 
 ## Contributing
 
