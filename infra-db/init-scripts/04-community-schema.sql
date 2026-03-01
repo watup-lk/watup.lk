@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS votes (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_submission_user ON votes (submission_id, user_id);
 
 -- High-performance counter table tailored for asynchronous Kafka updates
-CREATE TABLE IF NOT EXISTS submission_vote_counts (
+CREATE TABLE IF NOT EXISTS vote_counts (
     submission_id UUID PRIMARY KEY,
     up_count INTEGER NOT NULL DEFAULT 0,
     down_count INTEGER NOT NULL DEFAULT 0

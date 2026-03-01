@@ -48,6 +48,17 @@ func (s *VoteService) RecordVoteHTTP(ctx context.Context, submissionID, userID s
 		return nil, err
 	}
 
+	thresholdReached := s.HandleThresholdReached(ctx, submissionID, currentUpvotes)
+
+	return &v1.RecordVoteResponse{
+		Success: true,
+		Message: "Vote recorded successfully",
+		ThresholdReached: thresholdReached,
+	}, nil
+}
+
+func (s *VoteService) HandleThresholdReached(ctx context.Context, submissionID string, currentUpvotes int) bool {
+	
 	thresholdReached := currentUpvotes >= s.approvalThreshold
 
 	if thresholdReached {
@@ -57,9 +68,5 @@ func (s *VoteService) RecordVoteHTTP(ctx context.Context, submissionID, userID s
 		}
 	}
 
-	return &v1.RecordVoteResponse{
-		Success: true,
-		Message: "Vote recorded successfully",
-		ThresholdReached: thresholdReached,
-	}, nil
+	return thresholdReached
 }
