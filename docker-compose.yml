@@ -16,7 +16,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./infra-db/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -43,7 +43,7 @@ services:
     container_name: identity-service
     environment:
       # Change the url format according to the microservice and delete this comment once done :)
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=identity_schema
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=identity_schema&sslmode=disable
     ports:
       - "8081:8080"
     networks:
@@ -60,7 +60,7 @@ services:
     container_name: salary-service
     environment:
       # Change the url format according to the microservice and delete this comment once done :)
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=salary_schema
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=salary_schema&sslmode=disable
     ports:
       - "8082:8080"
     networks:
@@ -77,7 +77,7 @@ services:
     container_name: search-service
     environment:
       # Change the url format according to the microservice and delete this comment once done :)
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=salary_schema
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=salary_schema&sslmode=disable
     ports:
       - "8083:8080"
     networks:
@@ -87,7 +87,6 @@ services:
         condition: service_healthy
     restart: on-failure
 
-    
   # --- Stats Microservice ---
   stats-service:
     build:
@@ -95,7 +94,7 @@ services:
     container_name: stats-service
     environment:
       # Change the url format according to the microservice and delete this comment once done :)
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=community_schema
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=community_schema&sslmode=disable
     ports:
       - "8084:8080"
     networks:
@@ -111,8 +110,9 @@ services:
       context: ./vote-service
     container_name: vote-service
     environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/watup_db?search_path=vote_schema
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=community_schema&sslmode=disable
       - DATABASE_PORT=5432
+      - PORT=8080
     ports:
       - "8085:8080"
     networks:
