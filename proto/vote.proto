@@ -16,7 +16,6 @@ message RecordVoteRequest {
     DOWNVOTE = 1;
   }
   VoteType vote_type = 2;
-  // Note: user_id is extracted from gRPC Metadata (JWT) by the service
 }
 
 message RecordVoteResponse {

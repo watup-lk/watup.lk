@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"log"
 	"net"
+
+	_ "github.com/lib/pq"
 	"google.golang.org/grpc"
 
 	v1 "github.com/watup-lk/vote-service/api/proto/v1"

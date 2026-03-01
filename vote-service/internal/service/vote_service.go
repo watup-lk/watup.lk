@@ -33,8 +33,7 @@ func NewVoteService(repo *repository.PostgresRepo, k *kafka.Producer) *VoteServi
 }
 
 func (s *VoteService) RecordVote(ctx context.Context, req *v1.RecordVoteRequest) (*v1.RecordVoteResponse, error) {
-	// In a real scenario, extract UserID from gRPC metadata (JWT)
-	userID := "user-uuid-from-context"
+	userID := ctx.Value("user_id").(string)
 
 	currentUpvotes, err := s.repo.RecordVote(ctx, req.SubmissionId, userID, req.VoteType.String())
 	if err != nil {
