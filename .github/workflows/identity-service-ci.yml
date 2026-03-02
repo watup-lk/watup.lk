@@ -121,7 +121,7 @@ jobs:
 
       - name: Upload gosec SARIF results
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
+        if: always() && hashFiles('identity-service/gosec-results.sarif') != ''
         with:
           sarif_file: identity-service/gosec-results.sarif
           category: gosec
@@ -187,7 +187,7 @@ jobs:
 
       - name: Upload Trivy SARIF results
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
+        if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: trivy-results.sarif
           category: trivy
