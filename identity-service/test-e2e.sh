@@ -65,7 +65,7 @@ blue "\n=== 1. POST /auth/signup ==="
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/auth/signup" \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}")
+  -d "{\"name\":\"Test User\",\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}")
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -1)
 BODY=$(echo "$RESPONSE" | head -1)
@@ -81,7 +81,7 @@ blue "\n=== 1b. POST /auth/signup (duplicate) ==="
 
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/auth/signup" \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}")
+  -d "{\"name\":\"Test User\",\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}")
 assert_status "Duplicate signup → 409 Conflict" 409 "$STATUS"
 
 # ── 1c. Invalid Email Validation ──────────────────────────────────────────────
@@ -90,7 +90,7 @@ blue "\n=== 1c. POST /auth/signup (invalid email) ==="
 
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/auth/signup" \
   -H "Content-Type: application/json" \
-  -d '{"email":"not-an-email","password":"ValidPass99"}')
+  -d '{"name":"Bad","email":"not-an-email","password":"ValidPass99"}')
 assert_status "Invalid email → 400 Bad Request" 400 "$STATUS"
 
 # ── 1d. Weak Password Validation ─────────────────────────────────────────────
@@ -99,7 +99,7 @@ blue "\n=== 1d. POST /auth/signup (weak password) ==="
 
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/auth/signup" \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"weak_${TIMESTAMP}@example.com\",\"password\":\"short\"}")
+  -d "{\"name\":\"Weak\",\"email\":\"weak_${TIMESTAMP}@example.com\",\"password\":\"short\"}")
 assert_status "Weak password → 400 Bad Request" 400 "$STATUS"
 
 # ── 2. Login ──────────────────────────────────────────────────────────────────

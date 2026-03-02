@@ -19,7 +19,7 @@ on:
 env:
   GO_VERSION: "1.24"
   IMAGE_NAME: identity-service
-  MIN_COVERAGE: "60"
+  MIN_COVERAGE: "80"
 
 jobs:
   # ── 1. Test & Code Quality ────────────────────────────────────────────────────
@@ -65,7 +65,14 @@ jobs:
         run: go vet ./...
 
       - name: Run unit tests with race detector
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: |
+          # Test all packages, but only measure coverage on testable internal packages.
+          # Excludes: auto-generated proto, cmd/server bootstrap, kafka producer,
+          # and repository (DB-dependent — tested in e2e instead).
+          go test -v -race -covermode=atomic \
+            -coverpkg=./internal/service/...,./internal/handlers/...,./internal/middleware/...,./internal/config/...,./internal/grpcserver/... \
+            -coverprofile=coverage.out \
+            ./...
 
       - name: Enforce minimum coverage (${{ env.MIN_COVERAGE }}%)
         run: |
@@ -172,7 +179,7 @@ jobs:
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
-          exit-code: "0"    # Report findings but don't fail the build
+          exit-code: "0" # Report findings but don't fail the build
 
       - name: Upload Trivy SARIF results
         uses: github/codeql-action/upload-sarif@v3
@@ -193,7 +200,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: production   # Requires manual approval in GitHub Environments settings
+    environment: production # Requires manual approval in GitHub Environments settings
 
     steps:
       - name: Checkout

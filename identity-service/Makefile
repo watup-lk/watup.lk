@@ -8,7 +8,7 @@ IMAGE         := $(REGISTRY)/$(BINARY)
 TAG           ?= latest
 GOFLAGS       ?= -v -race
 COVERAGE_FILE := coverage.out
-MIN_COVERAGE  := 60
+MIN_COVERAGE  := 80
 
 # Proto generation settings
 PROTOC        := /opt/anaconda3/bin/protoc
@@ -39,11 +39,12 @@ build:
 run:
 	go run ./cmd/server/main.go
 
-# ── Test ───────────────────────────────────────────────────────────────────────
+# Testable packages (excludes auto-generated proto, cmd/server bootstrap, kafka, repository)
+COVERPKG := ./internal/service/...,./internal/handlers/...,./internal/middleware/...,./internal/config/...,./internal/grpcserver/...
 
 ## test: Run all unit tests with race detector
 test:
-	go test $(GOFLAGS) ./... -coverprofile=$(COVERAGE_FILE) -covermode=atomic
+	go test $(GOFLAGS) -coverpkg=$(COVERPKG) ./... -coverprofile=$(COVERAGE_FILE) -covermode=atomic
 
 ## test-cover: Show coverage report in browser
 test-cover: test
@@ -51,7 +52,7 @@ test-cover: test
 
 ## test-ci: Run tests and enforce minimum coverage threshold (used in CI)
 test-ci:
-	go test -v -race ./... -coverprofile=$(COVERAGE_FILE) -covermode=atomic
+	go test -v -race -coverpkg=$(COVERPKG) ./... -coverprofile=$(COVERAGE_FILE) -covermode=atomic
 	@COVERAGE=$$(go tool cover -func=$(COVERAGE_FILE) | grep total | awk '{print $$3}' | sed 's/%//'); \
 	echo "Coverage: $$COVERAGE%"; \
 	if [ $$(echo "$$COVERAGE < $(MIN_COVERAGE)" | bc -l) -eq 1 ]; then \
