@@ -1,0 +1,46 @@
+---
+# ClusterIP Service: PostgreSQL is only reachable inside the cluster,
+# not exposed externally — security requirement.
+# Microservices in the 'app' namespace connect via:
+#   postgres-service.data.svc.cluster.local:5432
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: data
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+
+---
+# ConfigMap: non-sensitive PostgreSQL configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: data
+data:
+  POSTGRES_DB: watup_db
+
+---
+# Secret: PostgreSQL credentials
+# ⚠️  Replace these base64 values with real credentials before deploying.
+# echo -n "watup_user" | base64  →  d2F0dXBfdXNlcg==
+# echo -n "your-strong-password" | base64
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: data
+type: Opaque
+data:
+  POSTGRES_USER: d2F0dXBfdXNlcg==
+  POSTGRES_PASSWORD: eW91ci1zdHJvbmctcGFzc3dvcmQ=

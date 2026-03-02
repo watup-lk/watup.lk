@@ -1,0 +1,100 @@
+# NetworkPolicy for identity-service.
+# Restricts which pods can reach the identity service (ingress) and
+# which external endpoints the identity service can reach (egress).
+#
+# This implements the security requirement: "internal services must not be
+# directly exposed publicly" and follows the principle of least privilege.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: identity-service-policy
+  namespace: app
+spec:
+  podSelector:
+    matchLabels:
+      app: identity-service
+  policyTypes:
+    - Ingress
+    - Egress
+
+  # ── Allowed Inbound Traffic ────────────────────────────────────────────────
+  ingress:
+    # Allow HTTP from NGINX Ingress Controller (external user traffic routed via Ingress)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8080
+          protocol: TCP
+
+    # Allow HTTP from BFF (Backend-for-Frontend calls /auth/validate on every request)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: bff
+      ports:
+        - port: 8080
+          protocol: TCP
+
+    # Allow gRPC from vote-service and other microservices (internal token validation)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: vote-service
+        - podSelector:
+            matchLabels:
+              app: salary-service
+        - podSelector:
+            matchLabels:
+              app: search-service
+        - podSelector:
+            matchLabels:
+              app: stats-service
+      ports:
+        - port: 50052
+          protocol: TCP
+
+    # Allow Kubernetes health probe traffic (kubelet is on the node, no namespace selector)
+    # Also allows Prometheus scraping on the dedicated metrics port (:9090)
+    - ports:
+        - port: 8080
+          protocol: TCP
+        - port: 9090
+          protocol: TCP
+
+  # ── Allowed Outbound Traffic ───────────────────────────────────────────────
+  egress:
+    # Allow access to PostgreSQL in the data namespace
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: data
+          podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+
+    # Allow access to Kafka in the app namespace
+    - to:
+        - podSelector:
+            matchLabels:
+              app: kafka
+      ports:
+        - port: 9092
+          protocol: TCP
+
+    # Allow HTTPS to Azure Key Vault and Azure AD (Workload Identity token exchange)
+    - ports:
+        - port: 443
+          protocol: TCP
+
+    # Allow DNS resolution (required for all service discovery)
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP

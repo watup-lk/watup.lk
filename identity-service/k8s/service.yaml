@@ -1,0 +1,30 @@
+# ClusterIP Service — not exposed externally. External traffic reaches the identity
+# service only through the Ingress controller (HTTP /auth/* path) or via gRPC from
+# other services inside the cluster. Internal services never have a public IP.
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-service
+  namespace: app
+  labels:
+    app: identity-service
+spec:
+  type: ClusterIP
+  selector:
+    app: identity-service
+  ports:
+    # HTTP REST API — used by BFF for auth operations and token validation
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+    # gRPC internal API — used by vote-service and other microservices
+    - name: grpc
+      port: 50052
+      targetPort: 50052
+      protocol: TCP
+    # Prometheus metrics — scraped by monitoring stack (e.g. kube-prometheus-stack)
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+      protocol: TCP

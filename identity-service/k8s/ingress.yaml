@@ -1,0 +1,69 @@
+# Ingress — external traffic enters via the Azure Load Balancer → NGINX Ingress Controller.
+#
+# IMPORTANT: Two separate Ingress objects so each can have its own annotation set.
+# The identity-service paths (/auth/*) are forwarded AS-IS — NO path rewriting —
+# because the Go service registers handlers at /auth/signup, /auth/login, etc.
+# A single Ingress with rewrite-target: /$2 would strip /auth/ and produce
+# 404 on every auth endpoint.
+#
+# Internal gRPC (:50052) is NOT exposed through ingress — ClusterIP only.
+---
+# ── Identity Service Ingress ──────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: identity-ingress
+  namespace: app
+  annotations:
+    # Rate limiting — brute-force protection for login/signup
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+spec:
+  ingressClassName: nginx   # replaces deprecated kubernetes.io/ingress.class annotation (removed in k8s 1.22+)
+  rules:
+    - http:
+        paths:
+          # Forward /auth/* to identity-service — full path preserved (no rewrite).
+          # Go mux handles /auth/signup, /auth/login, /auth/refresh, etc.
+          - path: /auth/
+            pathType: Prefix
+            backend:
+              service:
+                name: identity-service
+                port:
+                  number: 8080
+---
+# ── BFF & Frontend Ingress ───────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  namespace: app
+  annotations:
+    # CORS restricted to known origins — wildcard is insecure on authenticated endpoints
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://watup.lk,https://www.watup.lk"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization, Content-Type"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          # BFF — all API calls from the frontend
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: bff
+                port:
+                  number: 8080
+
+          # Frontend — Next.js app (catch-all)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000

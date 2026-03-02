@@ -1,0 +1,79 @@
+# PostgreSQL runs in the 'data' namespace — isolated from application workloads.
+# This implements the spec requirement: "PostgreSQL runs in the data namespace".
+# Logical schema separation (identity_schema, salary_schema, community_schema)
+# provides service isolation without needing separate database instances.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: data
+  labels:
+    app: postgres
+spec:
+  replicas: 1 # Single-node PostgreSQL for the single-node AKS cluster
+  selector:
+    matchLabels:
+      app: postgres
+  strategy:
+    type: Recreate # Not RollingUpdate — only one postgres pod can write to the PVC at a time
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          # Custom image copies all init-scripts to /docker-entrypoint-initdb.d/
+          # so all schemas are created automatically on first container start —
+          # consistent with docker-compose which also uses this image.
+          # Build: docker build -t watupacr.azurecr.io/watup-db:latest ./infra-db && docker push ...
+          image: watupacr.azurecr.io/watup-db:latest
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_DB
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          # Readiness probe: only route traffic when PostgreSQL is fully started
+          # Note: K8s exec probes do NOT expand shell variables like $(VAR).
+          # We hardcode the user/db to match the postgres-secret and postgres-config.
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "watup_user", "-d", "watup_db"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "watup_user", "-d", "watup_db"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc # Azure Managed Disk — data persists across pod restarts

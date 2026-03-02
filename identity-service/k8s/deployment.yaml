@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-service
+  namespace: app
+  labels:
+    app: identity-service
+    version: "1.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: identity-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0   # Zero-downtime: keep all pods alive during rollout
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: identity-service
+        version: "1.0"
+      annotations:
+        # Azure Workload Identity — pod uses this SA to authenticate to Azure Key Vault
+        # without any credentials in the image or env vars
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: identity-service-sa   # bound to Azure Managed Identity in AKS
+
+      # Pod-level security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001           # matches appuser in Dockerfile
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: identity-service
+          # Image is overwritten by CI/CD with the exact SHA tag on each deploy.
+          # Placeholder format: <ACR_NAME>.azurecr.io/identity-service:<git-sha>
+          image: watupacr.azurecr.io/identity-service:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: grpc
+              containerPort: 50052
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+
+          # Load non-sensitive config from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: identity-service-config
+
+          # Load sensitive config from Secret (overridden by Key Vault at runtime)
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: identity-service-secret
+                  key: JWT_SECRET
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: identity-service-secret
+                  key: DATABASE_URL
+
+          # Resource limits — prevents starving other services on a single-node cluster
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          # Container-level security hardening
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+
+          # /tmp is the only writable path — needed by Go runtime when readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+          # Startup probe: gives the pod up to 60s to start before liveness kicks in.
+          # Important when Azure Key Vault fetch adds latency at startup.
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 12    # 12 * 5s = 60s max startup time
+            successThreshold: 1
+
+          # Liveness probe: restart the pod if the process is stuck.
+          # Only runs AFTER startupProbe succeeds.
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            periodSeconds: 15
+            failureThreshold: 3
+            timeoutSeconds: 5
+
+          # Readiness probe: remove from load balancer if DB is unreachable.
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+      # Spread replicas across nodes for HA (soft requirement on single-node cluster)
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: identity-service

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: identity-service-config
+  namespace: app
+data:
+  # HTTP, gRPC, and metrics ports
+  PORT: "8080"
+  GRPC_PORT: "50052"
+  METRICS_PORT: "9090"
+
+  # Kafka broker address (internal cluster DNS)
+  KAFKA_BROKERS: "kafka-service.app.svc.cluster.local:9092"
+
+  # Azure Key Vault URL — pod uses Workload Identity to fetch secrets at runtime
+  # Replace with your actual Key Vault URL before deploying
+  AZURE_KEYVAULT_URL: "https://watup-keyvault.vault.azure.net/"
+
+  # Token lifetimes
+  ACCESS_TOKEN_MINUTES: "15"
+  REFRESH_TOKEN_DAYS: "7"
