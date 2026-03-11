@@ -1,2 +1,39 @@
-node_modules
+# Environment variables
 .env
+.env.*
+!.env.example
+**/**/.env
+**/**/.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+/.idea
+.vscode/
+
+# Dependencies
+**/node_modules/
+.pnp.*
+.yarn/*
+
+# Build output
+dist/
+build/
+.next/
+out/
+
+# Cache
+.cache
+.swc
+.nx/installation
+.nx/cache
+
+# Logs
+**/logs/**
+*.log
+npm-debug.log*
+
+# Misc
+*.tsbuildinfo

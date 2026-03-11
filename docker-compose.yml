@@ -21,18 +21,27 @@ services:
       retries: 5
     restart: always
 
-  # --- BFF (NestJS) ---
+  # --- BFF (Express proxy) ---
   bff:
     build:
       context: ./bff
     container_name: bff
     ports:
       - "8080:8080"
+    environment:
+      - PORT=8080
+      - IDENTITY_SERVICE_URL=http://identity-service:8080
+      - SEARCH_SERVICE_URL=http://search-service:8080
+      - SALARY_SERVICE_URL=http://salary-service:8080
+      - STATS_SERVICE_URL=http://stats-service:8080
+      - VOTE_HTTP_SERVICE_URL=http://vote-service:8080
     networks:
       - watup-internal
     depends_on:
-      postgres-db:
-        condition: service_healthy
+      identity-service:
+        condition: service_started
+      search-service:
+        condition: service_started
     restart: on-failure
 
   # --- Kafka (KRaft mode — no ZooKeeper) ---
