@@ -67,7 +67,7 @@ export async function getStats(
 // ── Voting ─────────────────────────────────────────────────────────────────
 export async function vote(
   salaryId: string,
-  type: 'up' | 'down',
+  type: 'UP' | 'DOWN',
   token: string
 ): Promise<void> {
   return request(`/api/vote/${salaryId}`, {
@@ -99,18 +99,25 @@ export async function reportSalary(
 }
 
 // ── Identity ───────────────────────────────────────────────────────────────
+
+// Identity service returns { access_token, refresh_token, expires_at } for login
+// and { user_id } for signup. We normalise both into AuthUser.
 export async function signup(email: string, password: string): Promise<AuthUser> {
-  return request('/api/auth/signup', {
+  // signup requires a name — use the email local-part as a fallback display name
+  const name = email.split('@')[0];
+  await request<{ user_id: string }>('/api/auth/signup', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ name, email, password }),
   });
+  return login(email, password);
 }
 
 export async function login(email: string, password: string): Promise<AuthUser> {
-  return request('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
+  const raw = await request<{ access_token: string; refresh_token: string; expires_at: string }>(
+    '/api/auth/login',
+    { method: 'POST', body: JSON.stringify({ email, password }) },
+  );
+  return { id: '', email, token: raw.access_token };
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────

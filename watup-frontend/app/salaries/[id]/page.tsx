@@ -37,15 +37,15 @@ export default function SalaryDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  async function handleVote(type: 'up' | 'down') {
+  async function handleVote(type: 'UP' | 'DOWN') {
     if (!token || !salary || voted) return;
     setVoteLoading(true);
     try {
       await vote(salary.id, type, token);
       setSalary(prev => prev ? {
         ...prev,
-        upvotes:   type === 'up'   ? prev.upvotes + 1   : prev.upvotes,
-        downvotes: type === 'down' ? prev.downvotes + 1 : prev.downvotes,
+        upvotes:   type === 'UP'   ? prev.upvotes + 1   : prev.upvotes,
+        downvotes: type === 'DOWN' ? prev.downvotes + 1 : prev.downvotes,
       } : prev);
       setVoted(true);
     } catch (err: unknown) {
@@ -109,14 +109,14 @@ export default function SalaryDetailPage() {
               <div className={styles.voteButtons}>
                 <button
                   className={`${styles.voteBtn} ${styles.voteUp}`}
-                  onClick={() => handleVote('up')}
+                  onClick={() => handleVote('UP')}
                   disabled={voted || voteLoading}
                 >
                   ▲ Upvote ({salary.upvotes})
                 </button>
                 <button
                   className={`${styles.voteBtn} ${styles.voteDown}`}
-                  onClick={() => handleVote('down')}
+                  onClick={() => handleVote('DOWN')}
                   disabled={voted || voteLoading}
                 >
                   ▼ Downvote ({salary.downvotes})
