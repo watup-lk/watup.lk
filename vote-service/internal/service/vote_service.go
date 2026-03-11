@@ -34,8 +34,16 @@ func NewVoteService(repo *repository.PostgresRepo, k *kafka.Producer) *VoteServi
 
 func (s *VoteService) RecordVote(ctx context.Context, req *v1.RecordVoteRequest) (*v1.RecordVoteResponse, error) {
 	userID := ctx.Value("user_id").(string)
+	return s.RecordVoteHTTP(ctx, req.SubmissionId, userID, req.VoteType)
+}
 
-	currentUpvotes, err := s.repo.RecordVote(ctx, req.SubmissionId, userID, req.VoteType.String())
+// RecordVoteHTTP is called by both the gRPC handler and the HTTP handler.
+func (s *VoteService) RecordVoteHTTP(ctx context.Context, submissionID, userID string, voteType v1.RecordVoteRequest_VoteType) (*v1.RecordVoteResponse, error) {
+	dbVoteType := "UP"
+	if voteType == v1.RecordVoteRequest_DOWNVOTE {
+		dbVoteType = "DOWN"
+	}
+	currentUpvotes, err := s.repo.RecordVote(ctx, submissionID, userID, dbVoteType)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +51,7 @@ func (s *VoteService) RecordVote(ctx context.Context, req *v1.RecordVoteRequest)
 	thresholdReached := currentUpvotes >= s.approvalThreshold
 
 	if thresholdReached {
-		err := s.kafka.PublishThresholdReached(ctx, req.SubmissionId)
+		err := s.kafka.PublishThresholdReached(ctx, submissionID)
 		if err != nil {
 			log.Printf("Failed to publish threshold reached event: %v", err)
 		}

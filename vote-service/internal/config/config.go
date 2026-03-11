@@ -5,7 +5,8 @@ import (
 )
 
 type Config struct {
-	Port string
+	Port     string
+	HTTPPort string
 	DatabaseURL string
 	KafkaBrokers []string
 	ApprovalThreshold int
@@ -13,8 +14,9 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		Port: getEnv("DATABASE_PORT", ""),
-		DatabaseURL: getEnv("DATABASE_URL", ""),
+		Port:         getEnv("PORT", "50051"),
+		HTTPPort:     getEnv("HTTP_PORT", "8081"),
+		DatabaseURL:  getEnv("DATABASE_URL", ""),
 		KafkaBrokers: []string{getEnv("KAFKA_BROKERS", "")},
 	}
 }

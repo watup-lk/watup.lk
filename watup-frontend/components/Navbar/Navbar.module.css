@@ -108,3 +108,20 @@
   border: 1px solid var(--color-success);
   letter-spacing: 0.05em;
 }
+
+.logoutLink{
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  transition: color 0.15s, background-color 0.15s;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}

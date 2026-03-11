@@ -34,7 +34,7 @@ func (r *PostgresRepo) RecordVote(ctx context.Context, submissionID, userID, vot
 
 	// 2. Count total upvotes for the threshold check
 	var count int
-	countQuery := `SELECT COUNT(*) FROM votes WHERE submission_id = $1 AND vote_type = 'UPVOTE'`
+	countQuery := `SELECT COUNT(*) FROM votes WHERE submission_id = $1 AND vote_type = 'UP'`
 	err = tx.QueryRowContext(ctx, countQuery, submissionID).Scan(&count)
 	if err != nil {
 		return 0, err
