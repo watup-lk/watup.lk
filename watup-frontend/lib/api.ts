@@ -51,7 +51,8 @@ export async function searchSalaries(
   const params = new URLSearchParams(
     Object.entries(filters).filter(([, v]) => v !== undefined) as [string, string][]
   );
-  return request(`/api/search?${params.toString()}`);
+  const res = await request<{ results: SearchResult[] } | SearchResult[]>(`/api/search?${params.toString()}`);
+  return Array.isArray(res) ? res : res.results;
 }
 
 // ── Stats ──────────────────────────────────────────────────────────────────

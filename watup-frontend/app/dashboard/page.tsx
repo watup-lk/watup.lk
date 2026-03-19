@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { getDashboard } from '@/lib/api';
 import { DashboardData, VoteResult } from '@/types';
-import SearchModal from '@/components/SearchModal/SearchModal';
 import styles from './page.module.css';
+
+const SearchModal = dynamic(() => import('@/components/SearchModal/SearchModal'), { ssr: false });
 
 function formatSalary(n: number) {
   return `LKR ${new Intl.NumberFormat('en-LK').format(n)}`;
@@ -35,15 +37,17 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
-    if (!token) {
+    const t = localStorage.getItem('token') ?? sessionStorage.getItem('token');
+    setToken(t);
+    if (!t) {
       setLoading(false);
-      setError('Not logged in');
+      setError('Please login to view your dashboard');
       return;
     }
-    getDashboard(token)
+    getDashboard(t)
       .then(setData)
       .catch(() => setError('Failed to load dashboard'))
       .finally(() => setLoading(false));
@@ -53,7 +57,7 @@ export default function DashboardPage() {
     <div className={styles.page}>
       <div className={styles.pageHeader}>
         <div>
-          <h1 className={styles.title}>Welcome back</h1>
+          <h1 className={styles.title}>{token ? 'Welcome back' : 'Welcome to Watup Dashboard'} </h1>
           <p className={styles.subtitle}>Your community activity overview</p>
         </div>
         <div className={styles.headerActions}>

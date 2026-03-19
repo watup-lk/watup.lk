@@ -40,7 +40,7 @@ const INITIAL: FormData = {
   role: '',
   experienceLevel: 'mid',
   company: '',
-  country: 'Sri Lanka',
+  country: 'LK',
   monthlySalaryLKR: '',
   currency: 'LKR',
   yearsOfExperience: '',

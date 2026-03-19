@@ -9,7 +9,7 @@ interface SearchModalProps {
   onClose: () => void;
 }
 
-const ACTIVE_FILTERS = ['Senior', 'Sri Lanka', '2025'];
+const ACTIVE_FILTERS = ['Senior', 'LK', '2025'];
 
 function formatSalary(n: number) {
   return new Intl.NumberFormat('en-LK').format(n);
@@ -34,7 +34,7 @@ export default function SearchModal({ onClose }: SearchModalProps) {
     }
     setLoading(true);
     try {
-      const data = await searchSalaries({ query: q, country: 'Sri Lanka' });
+      const data = await searchSalaries({ query: q, country: 'LK' });
       setResults(data);
       setSelectedIdx(0);
     } catch {

@@ -31,10 +31,15 @@ router.get('/', async (req: Request, res: Response) => {
     conditions.push(`s.experience_level = $${params.length}`);
   }
   if (query) {
-    params.push(query);
-    conditions.push(
-      `to_tsvector('english', coalesce(s.role,'') || ' ' || coalesce(s.company,'')) @@ plainto_tsquery('english', $${params.length})`
-    );
+    if (query.trim().length < 3) {
+      params.push(`%${query}%`);
+      conditions.push(`(s.role ILIKE $${params.length} OR s.company ILIKE $${params.length})`);
+    } else {
+      params.push(query);
+      conditions.push(
+        `to_tsvector('english', coalesce(s.role,'') || ' ' || coalesce(s.company,'')) @@ plainto_tsquery('english', $${params.length})`
+      );
+    }
   }
 
   const where = conditions.join(' AND ');
