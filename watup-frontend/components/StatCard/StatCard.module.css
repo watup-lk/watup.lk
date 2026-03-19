@@ -1,0 +1,43 @@
+.card {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.value {
+  font-size: 28px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.valuePrimary {
+  color: var(--color-primary);
+}
+
+.valueWarning {
+  color: var(--color-warning);
+}
+
+.valueDanger {
+  color: var(--color-danger);
+}
+
+.change {
+  font-size: 12px;
+  color: var(--color-success, #22c55e);
+  font-family: var(--font-mono);
+}

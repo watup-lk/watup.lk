@@ -1,0 +1,74 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2024-01-01\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: si\n"
+
+msgid "Search"
+msgstr "සොයන්න"
+
+msgid "Open search"
+msgstr "සෙවුම විවෘත කරන්න"
+
+msgid "Toggle language"
+msgstr "භාෂාව මාරු කරන්න"
+
+msgid "Switch to Sinhala"
+msgstr "සිංහලට මාරු වන්න"
+
+msgid "Switch to English"
+msgstr "ඉංග්‍රීසියට මාරු වන්න"
+
+msgid "Toggle theme"
+msgstr "තේමාව මාරු කරන්න"
+
+msgid "Switch to light mode"
+msgstr "ආලෝක ප්‍රකාරයට මාරු වන්න"
+
+msgid "Switch to dark mode"
+msgstr "අඳුරු ප්‍රකාරයට මාරු වන්න"
+
+msgid "Logout"
+msgstr "පිටවීම"
+
+msgid "Login"
+msgstr "පිවිසීම"
+
+msgid "Search salaries by role, company, level..."
+msgstr "භූමිකාව, සමාගම, මට්ටම අනුව වැටුප් සොයන්න..."
+
+msgid "Add filter"
+msgstr "පෙරහනක් එකතු කරන්න"
+
+msgid "Searching..."
+msgstr "සොයමින්..."
+
+msgid "results · Showing approved only"
+msgstr "ප්‍රතිඵල · අනුමත ඒවා පමණක්"
+
+msgid "Sort: Salary ↓"
+msgstr "වර්ග කිරීම: වැටුප ↓"
+
+msgid "No results found"
+msgstr "ප්‍රතිඵල හමු නොවිණි"
+
+msgid "votes · APPROVED"
+msgstr "ඡන්ද · අනුමත"
+
+msgid "Navigate"
+msgstr "සංචාලනය"
+
+msgid "Select"
+msgstr "තෝරන්න"
+
+msgid "Filter"
+msgstr "පෙරහන"
+
+msgid "View Full Results →"
+msgstr "සම්පූර්ණ ප්‍රතිඵල බලන්න →"
+
+msgid "Search queries: BFF → Search Service → salary schema (APPROVED only)"
+msgstr "සෙවුම් විමසුම්: BFF → සෙවුම් සේවාව → වැටුප් ව්‍යුහය (අනුමත ඒවා පමණි)"

@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useLingui } from '@lingui/react';
 import { searchSalaries } from '@/lib/api';
+import { formatNumber } from '@/utils/format';
 import { SearchResult } from '@/types';
 import styles from './SearchModal.module.css';
 
@@ -11,11 +13,8 @@ interface SearchModalProps {
 
 const ACTIVE_FILTERS = ['Senior', 'LK', '2025'];
 
-function formatSalary(n: number) {
-  return new Intl.NumberFormat('en-LK').format(n);
-}
-
 export default function SearchModal({ onClose }: SearchModalProps) {
+  const { _ } = useLingui();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,17 +27,13 @@ export default function SearchModal({ onClose }: SearchModalProps) {
   }, []);
 
   const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) {
-      setResults([]);
-      return;
-    }
+    if (!q.trim()) { setResults([]); return; }
     setLoading(true);
     try {
       const data = await searchSalaries({ query: q, country: 'LK' });
       setResults(data);
       setSelectedIdx(0);
     } catch {
-      // BFF not available — show empty state
       setResults([]);
     } finally {
       setLoading(false);
@@ -53,27 +48,20 @@ export default function SearchModal({ onClose }: SearchModalProps) {
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIdx(i => Math.min(i + 1, results.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIdx(i => Math.max(i - 1, 0));
-    } else if (e.key === 'Escape') {
-      onClose();
-    }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, results.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)); }
+    else if (e.key === 'Escape') { onClose(); }
   }
 
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={e => e.stopPropagation()} onKeyDown={handleKeyDown}>
-        {/* Header */}
         <div className={styles.header}>
           <span className={styles.searchIcon}>⌕</span>
           <input
             ref={inputRef}
             className={styles.input}
-            placeholder="Search salaries by role, company, level..."
+            placeholder={_('Search salaries by role, company, level...')}
             value={query}
             onChange={handleQueryChange}
             autoComplete="off"
@@ -84,24 +72,22 @@ export default function SearchModal({ onClose }: SearchModalProps) {
           </div>
         </div>
 
-        {/* Active filters */}
         <div className={styles.filters}>
           {ACTIVE_FILTERS.map(f => (
             <span key={f} className={styles.filterChip}>{f}</span>
           ))}
-          <button className={styles.addFilter}>+ Add filter</button>
+          <button className={styles.addFilter}>+ {_('Add filter')}</button>
         </div>
 
-        {/* Results */}
         {query && (
           <div className={styles.results}>
             <div className={styles.resultsMeta}>
-              <span>{loading ? 'Searching...' : `${results.length} results · Showing approved only`}</span>
-              <span className={styles.sortLabel}>Sort: Salary ↓</span>
+              <span>{loading ? _('Searching...') : `${results.length} ${_('results · Showing approved only')}`}</span>
+              <span className={styles.sortLabel}>{_('Sort: Salary ↓')}</span>
             </div>
 
             {results.length === 0 && !loading && (
-              <div className={styles.empty}>No results found</div>
+              <div className={styles.empty}>{_('No results found')}</div>
             )}
 
             {results.map((r, idx) => (
@@ -118,29 +104,28 @@ export default function SearchModal({ onClose }: SearchModalProps) {
                   </span>
                 </div>
                 <div className={styles.resultRight}>
-                  <span className={styles.resultSalary}>LKR {formatSalary(r.monthlySalaryLKR)}</span>
-                  <span className={styles.resultVotes}>▲ {r.votes ?? r.upvotes} votes · APPROVED</span>
+                  <span className={styles.resultSalary}>LKR {formatNumber(r.monthlySalaryLKR)}</span>
+                  <span className={styles.resultVotes}>▲ {r.votes ?? r.upvotes} {_('votes · APPROVED')}</span>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Footer */}
         <div className={styles.footer}>
           <div className={styles.footerLeft}>
-            <span>↑↓ Navigate</span>
-            <span>↵ Select</span>
-            <span>⌘F Filter</span>
+            <span>↑↓ {_('Navigate')}</span>
+            <span>↵ {_('Select')}</span>
+            <span>⌘F {_('Filter')}</span>
           </div>
           {results.length > 0 && (
-            <button className={styles.viewAll}>View Full Results →</button>
+            <button className={styles.viewAll}>{_('View Full Results →')}</button>
           )}
         </div>
 
         {!query && (
           <div className={styles.hint}>
-            Search queries: BFF → Search Service → salary schema (APPROVED only)
+            {_('Search queries: BFF → Search Service → salary schema (APPROVED only)')}
           </div>
         )}
       </div>
