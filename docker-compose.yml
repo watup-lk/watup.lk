@@ -42,6 +42,8 @@ services:
         condition: service_started
       search-service:
         condition: service_started
+      stats-service:
+        condition: service_started
     restart: on-failure
 
   # --- Kafka (KRaft mode — no ZooKeeper) ---
@@ -124,21 +126,21 @@ services:
         condition: service_healthy
     restart: on-failure
 
-  # --- Stats Microservice --- (not yet implemented)
-  # stats-service:
-  #   build:
-  #     context: ./stats-service
-  #   container_name: stats-service
-  #   environment:
-  #     - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=community_schema&sslmode=disable
-  #   ports:
-  #     - "8084:8080"
-  #   networks:
-  #     - watup-internal
-  #   depends_on:
-  #     postgres-db:
-  #       condition: service_healthy
-  #   restart: on-failure
+  # --- Stats Microservice ---
+  stats-service:
+    build:
+      context: ./stats-service
+    container_name: stats-service
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=salary_schema&sslmode=disable
+    ports:
+      - "8084:8080"
+    networks:
+      - watup-internal
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: on-failure
 
   # --- Vote Microservice (Go) ---
   vote-service:
