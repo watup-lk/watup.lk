@@ -123,6 +123,26 @@ analyticsRouter.get('/', async (req: Request, res: Response) => {
       medianLKR: trendMap[i] ?? 0,
     }));
 
+    // ── By company (top 10 by median) ─────────────────────────────────────
+    const byCompanyRes = await pool.query(
+      `SELECT
+         company,
+         COUNT(*)::int                                                              AS count,
+         ROUND(PERCENTILE_CONT(0.5)  WITHIN GROUP (ORDER BY salary_amount))::int   AS "medianSalaryLKR",
+         ROUND(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY salary_amount))::int   AS "p25SalaryLKR",
+         ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY salary_amount))::int   AS "p75SalaryLKR"
+       FROM salary_schema.submissions
+       WHERE status = 'APPROVED'
+         AND ($1::text IS NULL OR country = $1)
+         AND ($2::text IS NULL OR role    = $2)
+         AND company IS NOT NULL
+         AND company <> ''
+       GROUP BY company
+       ORDER BY "medianSalaryLKR" DESC
+       LIMIT 10`,
+      [country, role],
+    );
+
     // ── By experience level ────────────────────────────────────────────────
     const expRes = await pool.query(
       `SELECT
@@ -160,6 +180,7 @@ analyticsRouter.get('/', async (req: Request, res: Response) => {
       approvedEntriesChange: 0,
       medianChange,
       byRole:                byRoleRes.rows,
+      byCompany:             byCompanyRes.rows,
       trend,
       byExperience,
     });

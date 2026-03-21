@@ -62,6 +62,30 @@ const TrendTooltip = ({ active, payload, label }: { active?: boolean; payload?: 
   return null;
 };
 
+// Tooltip for the company bar chart — shows count + median + P25/P75
+const CompanyTooltip = ({ active, payload }: { active?: boolean; payload?: { payload: { company: string; median: number; p25: number; p75: number; count: number } }[] }) => {
+  if (active && payload?.[0]) {
+    const d = payload[0].payload;
+    return (
+      <div style={{
+        background: 'var(--color-surface-2)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 6,
+        padding: '10px 14px',
+        fontSize: 12,
+        fontFamily: 'var(--font-mono)',
+      }}>
+        <p style={{ color: 'var(--color-text)', fontWeight: 600, marginBottom: 6 }}>{d.company}</p>
+        <p style={{ color: 'var(--color-text-muted)' }}>Entries &nbsp;{d.count}</p>
+        <p style={{ color: 'var(--color-text-muted)' }}>P25 &nbsp;&nbsp; LKR {fmt(d.p25)}</p>
+        <p style={{ color: 'var(--color-primary)' }}>Median  LKR {fmt(d.median)}</p>
+        <p style={{ color: 'var(--color-text-muted)' }}>P75 &nbsp;&nbsp; LKR {fmt(d.p75)}</p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function AnalyticsPage() {
   const [data, setData]       = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,6 +123,20 @@ export default function AnalyticsPage() {
     month:  t.month,
     median: t.medianLKR / 1000,
   }));
+
+  const companyChartData = (data?.byCompany ?? []).map(c => ({
+    company: c.company,
+    median:  c.medianSalaryLKR,
+    p25:     c.p25SalaryLKR,
+    p75:     c.p75SalaryLKR,
+    count:   c.count,
+  }));
+
+  const companyDomainMax = companyChartData.length
+    ? Math.ceil(Math.max(...companyChartData.map(c => c.p75)) * 1.2)
+    : 700000;
+
+  const companyChartHeight = Math.max(240, companyChartData.length * 40);
 
   return (
     <div className={styles.page}>
@@ -254,6 +292,53 @@ export default function AnalyticsPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Top companies by median salary ── */}
+          {companyChartData.length > 0 && (
+            <div className={styles.panel}>
+              <h2 className={styles.panelTitle}>TOP COMPANIES BY MEDIAN SALARY</h2>
+              <p className={styles.panelSubtitle}>Top 10 · hover for P25 / P75 · filtered by current selection</p>
+              <ResponsiveContainer width="100%" height={companyChartHeight}>
+                <ComposedChart
+                  layout="vertical"
+                  data={companyChartData}
+                  margin={{ top: 4, right: 72, left: 150, bottom: 4 }}
+                >
+                  <XAxis
+                    type="number"
+                    domain={[0, companyDomainMax]}
+                    tickFormatter={(v: number) => `${Math.round(v / 1000)}K`}
+                    tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="company"
+                    tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }}
+                    width={145}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip content={<CompanyTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                  <Bar
+                    dataKey="median"
+                    fill="var(--color-primary)"
+                    fillOpacity={0.7}
+                    radius={[0, 4, 4, 0]}
+                    isAnimationActive={true}
+                    label={{
+                      position: 'right',
+                      fill: 'var(--color-text-muted)',
+                      fontSize: 11,
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter: (v: any) => v != null ? `${Math.round(Number(v) / 1000)}K` : '',
+                    }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </>
       )}
     </div>

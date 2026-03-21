@@ -49,6 +49,14 @@ export interface StatsResult {
   p75SalaryLKR: number;
 }
 
+export interface CompanyStats {
+  company: string;
+  count: number;
+  medianSalaryLKR: number;
+  p25SalaryLKR: number;
+  p75SalaryLKR: number;
+}
+
 export interface SalaryTrend {
   month: string;
   medianLKR: number;
@@ -75,6 +83,7 @@ export interface AnalyticsData {
   approvedEntriesChange: number;
   medianChange: number;
   byRole: StatsResult[];
+  byCompany: CompanyStats[];
   trend: SalaryTrend[];
   byExperience: ExperienceBreakdown[];
 }
