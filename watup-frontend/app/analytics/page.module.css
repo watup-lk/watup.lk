@@ -131,6 +131,12 @@
   color: var(--color-text-muted);
 }
 
+.panelSubtitle {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin-top: -0.5rem;
+}
+
 .legend {
   display: flex;
   gap: 1.5rem;
