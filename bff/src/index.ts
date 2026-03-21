@@ -8,6 +8,7 @@ const PORT = process.env.PORT ?? '8080';
 
 const IDENTITY_URL  = process.env.IDENTITY_SERVICE_URL  ?? 'http://identity-service:8080';
 const SEARCH_URL    = process.env.SEARCH_SERVICE_URL    ?? 'http://search-service:8080';
+const STATS_URL     = process.env.STATS_SERVICE_URL     ?? 'http://stats-service:8080';
 const VOTE_HTTP_URL = process.env.VOTE_HTTP_SERVICE_URL ?? 'http://vote-service:8081';
 
 // CORS — allow frontend to call BFF
@@ -22,14 +23,6 @@ app.use((_req, res, next) => {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 async function searchFetch(path: string) {
   return fetch(`${SEARCH_URL}${path}`);
-}
-
-function percentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return 0;
-  const idx = (p / 100) * (sorted.length - 1);
-  const lo = Math.floor(idx);
-  const hi = Math.ceil(idx);
-  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
@@ -147,141 +140,23 @@ app.get('/api/dashboard', requireAuth, async (_req: Request, res: Response) => {
   }
 });
 
-// ── Stats (public) — aggregated from search-service ──────────────────────────
-app.get('/api/stats', async (req: Request, res: Response) => {
-  try {
-    const { country, role } = req.query as Record<string, string | undefined>;
-    const qs = new URLSearchParams();
-    if (country && country !== 'Global') qs.set('country', country);
-    if (role) qs.set('role', role);
-    qs.set('limit', '500');
+// ── Stats (public) — proxy to stats-service ──────────────────────────────────
+app.use('/api/stats', createProxyMiddleware({
+  target:       STATS_URL,
+  changeOrigin: true,
+  pathRewrite:  { '^/': '/stats/' },
+}));
 
-    const upstream = await searchFetch(`/search?${qs.toString()}`);
-    if (!upstream.ok) { res.status(upstream.status).json({ message: 'upstream error' }); return; }
-    const body = await upstream.json() as { results: any[] };
-
-    const byRoleMap: Record<string, number[]> = {};
-    for (const s of body.results) {
-      if (!byRoleMap[s.role]) byRoleMap[s.role] = [];
-      byRoleMap[s.role].push(s.monthlySalaryLKR);
-    }
-
-    const results = Object.entries(byRoleMap).map(([r, sals]) => {
-      const sorted = [...sals].sort((a, b) => a - b);
-      return {
-        role:             r,
-        country:          country ?? 'Global',
-        count:            sorted.length,
-        averageSalaryLKR: Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length),
-        medianSalaryLKR:  Math.round(percentile(sorted, 50)),
-        p25SalaryLKR:     Math.round(percentile(sorted, 25)),
-        p75SalaryLKR:     Math.round(percentile(sorted, 75)),
-      };
-    });
-
-    res.json(results);
-  } catch {
-    res.status(502).json({ message: 'search service unavailable' });
-  }
-});
-
-// ── Analytics (public) — aggregated from search-service ──────────────────────
-app.get('/api/analytics', async (req: Request, res: Response) => {
-  try {
-    const { country, role, year } = req.query as Record<string, string | undefined>;
-    const qs = new URLSearchParams();
-    if (country && country !== 'Global') qs.set('country', country);
-    if (role) qs.set('role', role);
-    qs.set('limit', '500');
-
-    const upstream = await searchFetch(`/search?${qs.toString()}`);
-    if (!upstream.ok) { res.status(upstream.status).json({ message: 'upstream error' }); return; }
-    const body = await upstream.json() as { results: any[] };
-
-    const allSalaries = body.results
-      .map((s: any) => s.monthlySalaryLKR as number)
-      .filter(Boolean)
-      .sort((a, b) => a - b);
-
-    const medianSalaryLKR = Math.round(percentile(allSalaries, 50));
-    const p25SalaryLKR    = Math.round(percentile(allSalaries, 25));
-    const p75SalaryLKR    = Math.round(percentile(allSalaries, 75));
-    const approvedEntries = body.results.length;
-
-    // By role
-    const byRoleMap: Record<string, number[]> = {};
-    for (const s of body.results) {
-      if (!byRoleMap[s.role]) byRoleMap[s.role] = [];
-      byRoleMap[s.role].push(s.monthlySalaryLKR);
-    }
-    const byRole = Object.entries(byRoleMap).map(([r, sals]) => {
-      const sorted = [...sals].sort((a, b) => a - b);
-      return {
-        role:             r,
-        country:          country ?? 'Global',
-        count:            sorted.length,
-        averageSalaryLKR: Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length),
-        medianSalaryLKR:  Math.round(percentile(sorted, 50)),
-        p25SalaryLKR:     Math.round(percentile(sorted, 25)),
-        p75SalaryLKR:     Math.round(percentile(sorted, 75)),
-      };
-    });
-
-    // Trend: group by month of createdAt for the target year
-    const targetYear = year ? parseInt(year, 10) : new Date().getFullYear();
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const byMonth: Record<number, number[]> = {};
-    for (const s of body.results) {
-      const d = new Date(s.createdAt);
-      if (d.getFullYear() !== targetYear) continue;
-      const m = d.getMonth();
-      if (!byMonth[m]) byMonth[m] = [];
-      byMonth[m].push(s.monthlySalaryLKR);
-    }
-    const trend = monthNames.map((month, i) => {
-      const sals = (byMonth[i] ?? []).sort((a, b) => a - b);
-      return { month, medianLKR: Math.round(percentile(sals, 50)) };
-    });
-
-    // By experience
-    const expMap: Record<string, number> = {};
-    for (const s of body.results) {
-      const lvl = s.experienceLevel as string;
-      expMap[lvl] = (expMap[lvl] ?? 0) + 1;
-    }
-    const expColors: Record<string, string> = {
-      junior: '#3fb950', mid: '#00d4d4', senior: '#bc8cff', lead: '#e3b341', principal: '#f78166',
-    };
-    const expLabels: Record<string, string> = {
-      junior: 'Junior (0-2y)', mid: 'Mid (2-5y)', senior: 'Senior (5-8y)',
-      lead: 'Lead (8y+)', principal: 'Principal',
-    };
-    const total = approvedEntries || 1;
-    const byExperience = Object.entries(expMap).map(([level, count]) => ({
-      level,
-      label:      expLabels[level] ?? level,
-      percentage: Math.round((count / total) * 100),
-      color:      expColors[level] ?? '#888',
-    }));
-
-    res.json({
-      medianSalaryLKR,
-      p25SalaryLKR,
-      p75SalaryLKR,
-      approvedEntries,
-      approvedEntriesChange: 0,
-      medianChange:          0,
-      byRole,
-      trend,
-      byExperience,
-    });
-  } catch {
-    res.status(502).json({ message: 'search service unavailable' });
-  }
-});
+// ── Analytics (public) — proxy to stats-service ───────────────────────────────
+app.use('/api/analytics', createProxyMiddleware({
+  target:       STATS_URL,
+  changeOrigin: true,
+  pathRewrite:  { '^/': '/analytics/' },
+}));
 
 app.listen(PORT, () => {
   console.log(`bff listening on :${PORT}`);
   console.log(`  identity → ${IDENTITY_URL}`);
   console.log(`  search   → ${SEARCH_URL}`);
+  console.log(`  stats    → ${STATS_URL}`);
 });
