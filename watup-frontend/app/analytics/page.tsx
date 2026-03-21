@@ -5,12 +5,11 @@ import {
   ResponsiveContainer,
   ComposedChart,
   Bar,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
   LineChart,
-  ReferenceLine,
+  Line,
 } from 'recharts';
 import { getAnalytics } from '@/lib/api';
 import { AnalyticsData } from '@/types';
@@ -20,8 +19,32 @@ function fmt(n: number) {
   return new Intl.NumberFormat('en-LK', { notation: 'compact', maximumFractionDigits: 0 }).format(n);
 }
 
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string }>; label?: string }) => {
-  if (active && payload && payload.length) {
+// Tooltip for the role median bar chart — shows P25 / Median / P75
+const RoleTooltip = ({ active, payload }: { active?: boolean; payload?: { payload: { role: string; median: number; p25: number; p75: number } }[] }) => {
+  if (active && payload?.[0]) {
+    const d = payload[0].payload;
+    return (
+      <div style={{
+        background: 'var(--color-surface-2)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 6,
+        padding: '10px 14px',
+        fontSize: 12,
+        fontFamily: 'var(--font-mono)',
+      }}>
+        <p style={{ color: 'var(--color-text)', fontWeight: 600, marginBottom: 6 }}>{d.role}</p>
+        <p style={{ color: 'var(--color-text-muted)' }}>P25 &nbsp;&nbsp; LKR {fmt(d.p25)}</p>
+        <p style={{ color: 'var(--color-primary)' }}>Median  LKR {fmt(d.median)}</p>
+        <p style={{ color: 'var(--color-text-muted)' }}>P75 &nbsp;&nbsp; LKR {fmt(d.p75)}</p>
+      </div>
+    );
+  }
+  return null;
+};
+
+// Tooltip for trend line chart
+const TrendTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) => {
+  if (active && payload?.[0]) {
     return (
       <div style={{
         background: 'var(--color-surface-2)',
@@ -30,14 +53,9 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
         padding: '8px 12px',
         fontSize: 12,
         fontFamily: 'var(--font-mono)',
-        color: 'var(--color-text)',
       }}>
-        <p style={{ marginBottom: 4, color: 'var(--color-text-muted)' }}>{label}</p>
-        {payload.map((p, i) => (
-          <p key={i} style={{ color: 'var(--color-primary)' }}>
-            LKR {new Intl.NumberFormat('en-LK').format(p.value)}
-          </p>
-        ))}
+        <p style={{ color: 'var(--color-text-muted)', marginBottom: 4 }}>{label}</p>
+        <p style={{ color: 'var(--color-primary)' }}>LKR {new Intl.NumberFormat('en-LK').format(payload[0].value * 1000)}</p>
       </div>
     );
   }
@@ -45,12 +63,12 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 };
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [data, setData]       = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
   const [country, setCountry] = useState('LK');
-  const [role, setRole] = useState('');
-  const [year, setYear] = useState(new Date().getFullYear());
+  const [role, setRole]       = useState('');
+  const [year, setYear]       = useState(new Date().getFullYear());
 
   useEffect(() => {
     setLoading(true);
@@ -61,13 +79,21 @@ export default function AnalyticsPage() {
       .finally(() => setLoading(false));
   }, [country, role, year]);
 
-  const roleChartData = (data?.byRole ?? []).map(r => ({
-    role:       r.role,
-    rangeStart: r.p25SalaryLKR / 1000,
-    rangeSize:  (r.p75SalaryLKR - r.p25SalaryLKR) / 1000,
-    median:     r.medianSalaryLKR / 1000,
-    label:      `${Math.round(r.medianSalaryLKR / 1000)}K`,
-  }));
+  // Sort roles by median salary descending for a clear ranking view
+  const roleChartData = [...(data?.byRole ?? [])]
+    .sort((a, b) => b.medianSalaryLKR - a.medianSalaryLKR)
+    .map(r => ({
+      role:   r.role,
+      median: r.medianSalaryLKR,
+      p25:    r.p25SalaryLKR,
+      p75:    r.p75SalaryLKR,
+    }));
+
+  const roleDomainMax = roleChartData.length
+    ? Math.ceil(Math.max(...roleChartData.map(r => r.p75)) * 1.2)
+    : 700000;
+
+  const chartHeight = Math.max(280, roleChartData.length * 40);
 
   const trendData = (data?.trend ?? []).map(t => ({
     month:  t.month,
@@ -88,7 +114,7 @@ export default function AnalyticsPage() {
           </select>
           <select className={styles.filterSelect} value={role} onChange={e => setRole(e.target.value)}>
             <option value="">All Roles ▼</option>
-            {(data?.byRole ?? []).map(r => (
+            {roleChartData.map(r => (
               <option key={r.role} value={r.role}>{r.role}</option>
             ))}
           </select>
@@ -108,8 +134,8 @@ export default function AnalyticsPage() {
             <div className={styles.statCard}>
               <p className={styles.statLabel}>MEDIAN SALARY</p>
               <p className={`${styles.statValue} ${styles.statPrimary}`}>LKR {fmt(data.medianSalaryLKR)}</p>
-              {data.medianChange > 0 && (
-                <p className={styles.statChange}>+{data.medianChange}% vs last year</p>
+              {data.medianChange !== 0 && (
+                <p className={styles.statChange}>{data.medianChange > 0 ? '+' : ''}{data.medianChange}% vs last month</p>
               )}
             </div>
             <div className={styles.statCard}>
@@ -130,47 +156,65 @@ export default function AnalyticsPage() {
           </div>
 
           <div className={styles.chartsGrid}>
+            {/* ── Median salary by role ── */}
             <div className={styles.panel}>
-              <h2 className={styles.panelTitle}>SALARY DISTRIBUTION BY ROLE (APPROVED DATA)</h2>
+              <h2 className={styles.panelTitle}>MEDIAN SALARY BY ROLE</h2>
+              <p className={styles.panelSubtitle}>Sorted by median · hover for P25 / P75</p>
               {roleChartData.length === 0
                 ? <p className={styles.loadingNote}>No role data available</p>
                 : (
-                  <ResponsiveContainer width="100%" height={320}>
+                  <ResponsiveContainer width="100%" height={chartHeight}>
                     <ComposedChart
                       layout="vertical"
                       data={roleChartData}
-                      margin={{ top: 8, right: 70, left: 100, bottom: 8 }}
+                      margin={{ top: 4, right: 72, left: 130, bottom: 4 }}
                     >
-                      <XAxis type="number" hide />
-                      <YAxis type="category" dataKey="role" tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} width={95} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="rangeStart" stackId="a" fill="transparent" isAnimationActive={false} />
-                      <Bar dataKey="rangeSize" stackId="a" fill="var(--color-primary)" fillOpacity={0.5} radius={[0, 4, 4, 0]} isAnimationActive={true} />
-                      <ReferenceLine x={0} stroke="var(--color-border)" />
+                      <XAxis
+                        type="number"
+                        domain={[0, roleDomainMax]}
+                        tickFormatter={(v: number) => `${Math.round(v / 1000)}K`}
+                        tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="role"
+                        tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }}
+                        width={125}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip content={<RoleTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                      <Bar
+                        dataKey="median"
+                        fill="var(--color-primary)"
+                        fillOpacity={0.85}
+                        radius={[0, 4, 4, 0]}
+                        isAnimationActive={true}
+                        label={{
+                          position: 'right',
+                          fill: 'var(--color-text-muted)',
+                          fontSize: 11,
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          formatter: (v: any) => v != null ? `${Math.round(Number(v) / 1000)}K` : '',
+                        }}
+                      />
                     </ComposedChart>
                   </ResponsiveContainer>
                 )
               }
-              <div className={styles.legend}>
-                <span className={styles.legendItem}>
-                  <span className={styles.legendColor} style={{ background: 'var(--color-primary)', opacity: 0.5 }} />
-                  P25-P75 Range
-                </span>
-                <span className={styles.legendItem}>
-                  <span className={styles.legendLine} />
-                  Median
-                </span>
-              </div>
             </div>
 
             <div className={styles.rightCol}>
+              {/* ── Monthly trend ── */}
               <div className={styles.panel}>
                 <h2 className={styles.panelTitle}>SALARY TREND (MONTHLY MEDIAN)</h2>
                 <ResponsiveContainer width="100%" height={180}>
                   <LineChart data={trendData} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
                     <XAxis dataKey="month" tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis hide />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<TrendTooltip />} />
                     <Line
                       type="monotone"
                       dataKey="median"
@@ -183,24 +227,27 @@ export default function AnalyticsPage() {
                 </ResponsiveContainer>
               </div>
 
+              {/* ── By experience level ── */}
               <div className={styles.panel}>
                 <h2 className={styles.panelTitle}>BY EXPERIENCE LEVEL</h2>
                 {data.byExperience.length === 0
                   ? <p className={styles.loadingNote}>No experience data available</p>
                   : (
                     <div className={styles.expList}>
-                      {data.byExperience.map(e => (
-                        <div key={e.level} className={styles.expRow}>
-                          <span className={styles.expLabel}>{e.label}</span>
-                          <div className={styles.expBar}>
-                            <div
-                              className={styles.expFill}
-                              style={{ width: `${e.percentage}%`, background: e.color }}
-                            />
+                      {data.byExperience
+                        .sort((a, b) => b.percentage - a.percentage)
+                        .map(e => (
+                          <div key={e.level} className={styles.expRow}>
+                            <span className={styles.expLabel}>{e.label}</span>
+                            <div className={styles.expBar}>
+                              <div
+                                className={styles.expFill}
+                                style={{ width: `${e.percentage}%`, background: e.color }}
+                              />
+                            </div>
+                            <span className={styles.expPct}>{e.percentage}%</span>
                           </div>
-                          <span className={styles.expPct}>{e.percentage}%</span>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   )
                 }
