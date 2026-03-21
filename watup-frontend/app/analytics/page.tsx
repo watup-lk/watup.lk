@@ -48,7 +48,7 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [country, setCountry] = useState('Sri Lanka');
+  const [country, setCountry] = useState('LK');
   const [role, setRole] = useState('');
   const [year, setYear] = useState(new Date().getFullYear());
 
@@ -83,7 +83,7 @@ export default function AnalyticsPage() {
         </div>
         <div className={styles.filters}>
           <select className={styles.filterSelect} value={country} onChange={e => setCountry(e.target.value)}>
-            <option value="Sri Lanka">Sri Lanka ▼</option>
+            <option value="LK">Sri Lanka ▼</option>
             <option value="Global">Global</option>
           </select>
           <select className={styles.filterSelect} value={role} onChange={e => setRole(e.target.value)}>
