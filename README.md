@@ -1,36 +1,46 @@
 # watup.lk
 
-A microservice-based salary transparency platform for Sri Lanka, built as a cloud-native application deployed on Azure Kubernetes Service (AKS). Users can anonymously submit salary data, search and filter entries, and vote on their trustworthiness.
+A microservice-based salary transparency platform for Sri Lanka, built as a cloud-native application deployed on Azure Kubernetes Service (AKS). Users can anonymously submit salary data, search and filter entries, vote on their trustworthiness, and explore salary analytics.
 
-## Projects
+## Services
 
-This monorepo contains the following core services and applications:
-
-- **watup-fe**: Frontend application (Next.js) — UI for salary search, submission, and community voting.
-- **identity-service**: Identity and authentication service (Go) — user signup/login, JWT tokens, gRPC token validation, Kafka event publishing, audit logging.
-- **vote-service**: Voting service (Go) — upvote/downvote salary submissions, approval threshold.
-- **infra-db**: PostgreSQL 16 with schema-per-service isolation (identity, salary, community schemas).
+| Service | Language | Responsibility |
+|---------|----------|---------------|
+| **watup-frontend** | Next.js 14 | UI — search, submit, vote, analytics |
+| **bff** | Node.js / TypeScript | API gateway — single entry point for the frontend, auth enforcement, request routing |
+| **identity-service** | Go | User signup/login, JWT tokens, gRPC token validation, Kafka audit events |
+| **search-service** | Node.js / TypeScript | Filtered salary lookup against `salary_schema` |
+| **stats-service** | Node.js / TypeScript | Aggregated salary insights — medians, percentiles, trends, experience breakdown |
+| **vote-service** | Go | Upvote/downvote submissions, approval threshold via Kafka |
+| **infra-db** | PostgreSQL 16 | Single DB with schema-per-service isolation |
 
 ## Project Structure
 
 ```text
 watup.lk/
-├── identity-service/    # Identity and authentication service (Go)
-├── infra-db/            # Database initialization scripts and Docker config
-├── proto/               # Protocol Buffers (gRPC definitions)
-├── vote-service/        # Voting service (Go)
-├── watup-fe/            # Frontend application (Next.js)
-├── docker-compose.yml   # Multi-service container orchestration
-├── .env                 # Environment variables for docker-compose
-├── package.json         # Node dependencies
-└── README.md            # This file
+├── watup-frontend/      # Next.js frontend
+├── bff/                 # Backend-for-Frontend (Express proxy + auth)
+├── identity-service/    # Auth microservice (Go)
+├── search-service/      # Salary search microservice (Node.js)
+├── stats-service/       # Salary stats microservice (Node.js)
+├── vote-service/        # Voting microservice (Go)
+├── infra-db/            # PostgreSQL init scripts and Dockerfile
+├── proto/               # Shared protobuf definitions (gRPC)
+├── docker-compose.yml   # Full local stack orchestration
+├── .env                 # Backend environment variables (not committed)
+└── README.md
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-A `.env` file is required in the project root for docker-compose. It should contain:
+- Docker Desktop (running)
+- Node.js 20+ (for the frontend only)
+
+### 1. Create the `.env` file
+
+Create `.env` in the project root:
 
 ```env
 POSTGRES_USER=watup_user
@@ -38,80 +48,106 @@ POSTGRES_PASSWORD=watup_dev_password
 POSTGRES_DB=watup_db
 ```
 
-> [!NOTE]
-> A `.env` file is included by default. Update the password before deploying to production.
+### 2. Create the frontend `.env.local` file
 
-### Service Management
+Create `watup-frontend/.env.local`:
 
-```bash
-# Start all services and the database in the background
-docker compose up -d
-
-# Rebuild images and start (Required after changing service code)
-docker compose up -d --build
-
-# Check the status of all containers
-docker compose ps
+```env
+NEXT_PUBLIC_BFF_URL=http://localhost:8080
 ```
 
-### Stopping and Teardown
+### 3. Start all backend services
 
 ```bash
-# Stop all services gracefully
-docker compose stop
+docker compose up -d --build
+```
 
-# Shut down all services (stops and removes containers)
+### 4. Start the frontend
+
+```bash
+cd watup-frontend
+npm install
+npm run dev
+```
+
+The app is now available at **http://localhost:3000**.
+
+## Local Service Ports
+
+| Service | Host Port | Notes |
+|---------|-----------|-------|
+| Frontend (Next.js) | 3000 | Started separately via `npm run dev` |
+| BFF (API gateway) | 8080 | Single entry point for all frontend API calls |
+| Identity Service | 8081 | HTTP; also 50052 (gRPC), 9090 (metrics) |
+| Search Service | 8083 | |
+| Stats Service | 8084 | |
+| Vote Service | 8087 | HTTP; also 8085 (gRPC) |
+| Kafka UI | 8086 | Browse topics and messages |
+| PostgreSQL | 5432 | User: `watup_user`, DB: `watup_db` |
+
+## Common Commands
+
+```bash
+# Start all backend services (rebuild after code changes)
+docker compose up -d --build
+
+# Start a single service only
+docker compose up -d --build stats-service
+
+# Check status of all containers
+docker compose ps
+
+# View logs for a specific service (live)
+docker compose logs -f stats-service
+
+# Stop all services
 docker compose down
 
-# FULL RESET: Deletes all containers, networks, and LOCAL DATA
+# Full reset — removes all containers and database data
 docker compose down -v
 ```
 
-## Proto Definitions & Code Generation
-
-All gRPC service definitions are stored in the root `proto/` directory. This ensures a single source of truth for service contracts across all microservices.
-
-### Workflow
-
-1. **Add/Update Protos**: Place your `.proto` files in the root `proto/` directory.
-2. **Generate Code**: Navigate to the specific service directory (e.g., `vote-service`) and run the code generation command.
-
 ## Database
 
-This project uses a containerized architecture to ensure a consistent development environment across the team. The core data layer is powered by PostgreSQL 16 (Alpine), managed via Docker.
+Single PostgreSQL 16 instance with three logical schemas:
 
-We use a single database instance with multiple logical schemas to provide data isolation between microservices while maintaining a lightweight footprint for local development.
+| Schema | Owner Service | Tables |
+|--------|--------------|--------|
+| `identity_schema` | identity-service | `users`, `refresh_tokens`, `audit_logs`, `password_reset_tokens` |
+| `salary_schema` | search-service, stats-service | `submissions` (PENDING → APPROVED → REJECTED) |
+| `community_schema` | vote-service | `votes`, `submission_vote_counts` |
 
-### Database Commands
+Connect with any PostgreSQL client using host `localhost`, port `5432`, user `watup_user`, password `watup_dev_password`, database `watup_db`.
 
-| Action | Command | Description |
-| --- | --- | --- |
-| **Start DB** | `docker compose up -d postgres-db` | Starts the Postgres container in the background. |
-| **Stop DB** | `docker compose stop postgres-db` | Gracefully stops the DB (preserves container state). |
-| **Resume DB** | `docker compose start postgres-db` | Quickly starts the stopped DB container. |
-| **Remove DB** | `docker compose down postgres-db` | Stops and removes the container (data is safe). |
-| **View Logs** | `docker compose logs -f postgres-db` | Follows the database logs in real-time. |
+Run a query directly:
+```bash
+docker exec watup-db psql -U watup_user -d watup_db -c "SELECT role, company, salary_amount, status FROM salary_schema.submissions;"
+```
 
 > [!IMPORTANT]
-> **Initialization:** On the first run, Docker executes scripts in `./infra-db/init-scripts/` to create schemas (`identity_schema`, `salary_schema`, `community_schema`). If you modify these scripts, you must run `docker compose down -v` to reset the database and trigger re-initialization.
+> On first run, Docker executes scripts in `./infra-db/init-scripts/` to create all schemas and seed data. If you modify these scripts, run `docker compose down -v` to trigger re-initialisation.
 
 ## Kafka Event Bus
 
-Microservices communicate asynchronously via Apache Kafka (KRaft mode — no ZooKeeper). The following topics are used:
+Kafka runs in KRaft mode (no ZooKeeper). Topics:
 
 | Topic | Producer | Description |
 |-------|----------|-------------|
-| `user.registered` | identity-service | Published when a new user signs up |
-| `user.login` | identity-service | Published on each successful login |
-| `user.logout` | identity-service | Published when a user logs out |
+| `user.registered` | identity-service | Published on new user signup |
+| `user.login` | identity-service | Published on successful login |
+| `user.logout` | identity-service | Published on logout |
 | `user.token_refresh` | identity-service | Published on token refresh |
-| `threshold-reached` | vote-service | Published when a submission reaches the approval threshold |
+| `threshold-reached` | vote-service | Published when a submission reaches 5 upvotes |
 
-Kafka UI is available at `http://localhost:8086` when running with docker-compose.
+Kafka UI: **http://localhost:8086**
 
-## Contributing
+## Authentication
 
-When contributing to this monorepo, please ensure you:
-1. Keep all repositories in sync.
-2. Test changes across affected services.
-3. Follow the established coding standards for each project.
+- **No login required:** Browse salaries, search, submit a salary, view analytics
+- **Login required:** Upvote/downvote, dashboard, admin panel
+
+Tokens issued by identity-service: 15-minute access token + 7-day refresh token. The BFF validates every protected request before forwarding it downstream.
+
+## Proto Definitions
+
+All gRPC service definitions live in the root `proto/` directory. To regenerate Go code after modifying a `.proto` file, navigate to the relevant service directory and run its `make proto` command (identity-service) or equivalent.
