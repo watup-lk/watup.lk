@@ -1,6 +1,20 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
+import { FindSubmissionsQueryDto } from './dto/find-submissions-query.dto';
 import { Submission } from './entities/submission.entity';
 import { SubmissionsService } from './submissions.service';
 
@@ -8,6 +22,20 @@ import { SubmissionsService } from './submissions.service';
 @Controller('submissions')
 export class SubmissionsController {
   constructor(private readonly submissionsService: SubmissionsService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'List approved salary submissions',
+    description:
+      'Returns all approved submissions. Supports optional filtering by role, country, experience level, work type, and currency.',
+  })
+  @ApiOkResponse({
+    description: 'List of approved submissions.',
+    type: [Submission],
+  })
+  async findAll(@Query() query: FindSubmissionsQueryDto) {
+    return this.submissionsService.findAll(query);
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
