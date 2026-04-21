@@ -18,8 +18,8 @@ import { FindSubmissionsQueryDto } from './dto/find-submissions-query.dto';
 import { Submission } from './entities/submission.entity';
 import { SubmissionsService } from './submissions.service';
 
-@ApiTags('submissions')
-@Controller('submissions')
+@ApiTags('salary-submissions')
+@Controller('api/salary')
 export class SubmissionsController {
   constructor(private readonly submissionsService: SubmissionsService) {}
 
