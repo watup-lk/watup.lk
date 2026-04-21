@@ -8,6 +8,7 @@ const PORT = process.env.PORT ?? '8080';
 
 const IDENTITY_URL  = process.env.IDENTITY_SERVICE_URL  ?? 'http://identity-service:8080';
 const SEARCH_URL    = process.env.SEARCH_SERVICE_URL    ?? 'http://search-service:8080';
+const SALARY_URL    = process.env.SALARY_SERVICE_URL    ?? 'http://salary-service:8080';
 const STATS_URL     = process.env.STATS_SERVICE_URL     ?? 'http://stats-service:8080';
 const VOTE_HTTP_URL = process.env.VOTE_HTTP_SERVICE_URL ?? 'http://vote-service:8081';
 
@@ -44,6 +45,25 @@ app.use('/api/search', createProxyMiddleware({
   changeOrigin: true,
   pathRewrite:  { '^/': '/search/' },
 }));
+
+// // Body parser — registered after proxy routes so their streams are not consumed
+// app.use(express.json());
+
+// ── Salary (public) — proxy to salary-service ───────────────────────────────
+app.use('/api/salary', (req, _res, next) => {
+  console.log('salary proxy hit:', req.method, req.originalUrl);
+  next();
+});
+
+app.use('/api/salary',
+  createProxyMiddleware({
+    target: SALARY_URL,
+    changeOrigin: true,
+    pathRewrite: {
+      '^/': '/salary',
+    },
+  }),
+);
 
 // Body parser — registered after proxy routes so their streams are not consumed
 app.use(express.json());
@@ -158,5 +178,6 @@ app.listen(PORT, () => {
   console.log(`bff listening on :${PORT}`);
   console.log(`  identity → ${IDENTITY_URL}`);
   console.log(`  search   → ${SEARCH_URL}`);
+  console.log(`  salary   → ${SALARY_URL}`)
   console.log(`  stats    → ${STATS_URL}`);
 });

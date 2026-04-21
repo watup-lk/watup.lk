@@ -19,7 +19,7 @@ import { Submission } from './entities/submission.entity';
 import { SubmissionsService } from './submissions.service';
 
 @ApiTags('salary-submissions')
-@Controller('api/salary')
+@Controller('salary')
 export class SubmissionsController {
   constructor(private readonly submissionsService: SubmissionsService) {}
 

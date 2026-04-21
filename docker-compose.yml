@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     networks:
       - watup-internal
     volumes:
@@ -43,6 +43,8 @@ services:
       search-service:
         condition: service_started
       stats-service:
+        condition: service_started
+      salary-service:
         condition: service_started
     restart: on-failure
 
@@ -93,21 +95,28 @@ services:
         condition: service_healthy
     restart: on-failure
 
-  # --- Salary Microservice --- (not yet implemented)
-  # salary-service:
-  #   build:
-  #     context: ./salary-service
-  #   container_name: salary-service
-  #   environment:
-  #     - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=salary_schema&sslmode=disable
-  #   ports:
-  #     - "8082:8080"
-  #   networks:
-  #     - watup-internal
-  #   depends_on:
-  #     postgres-db:
-  #       condition: service_healthy
-  #   restart: on-failure
+  # --- Salary Microservice --- 
+  salary-service:
+    build:
+      context: ./salary-service
+    container_name: salary-service
+    environment:
+      # - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=salary_schema&sslmode=disable
+      - PORT=8080
+      - DB_HOST=postgres-db
+      - DB_PORT=5432
+      - DB_USERNAME=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB}
+      - DB_SCHEMA=salary_schema
+    ports:
+      - "8082:8080"
+    networks:
+      - watup-internal
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: on-failure
 
   # --- Search Microservice ---
   search-service:
