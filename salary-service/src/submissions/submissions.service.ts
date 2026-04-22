@@ -14,9 +14,9 @@ export class SubmissionsService {
   ) {}
 
   /**
-   * Get all approved salary submissions, with optional filtering by role, country, 
+   * Get all approved salary submissions, with optional filtering by role, country,
    * experience level, work type, and currency.
-   * 
+   *
    * @param query search filters
    * @returns list of approved submissions matching the filters
    */
@@ -61,11 +61,11 @@ export class SubmissionsService {
     const submission = this.submissionRepository.create({
       role: createSubmissionDto.role.trim(),
       company: createSubmissionDto.company?.trim() || null,
-      country: createSubmissionDto.country?.trim().toUpperCase() || 'LK',
+      country: createSubmissionDto.country?.trim() || 'LK',
       city: createSubmissionDto.city?.trim() || null,
-      salaryAmount: createSubmissionDto.salaryAmount.toFixed(2),
+      salaryAmount: createSubmissionDto.monthlySalaryLKR.toFixed(2),
       currency: createSubmissionDto.currency?.trim().toUpperCase() || 'LKR',
-      experienceYears: createSubmissionDto.experienceYears ?? null,
+      experienceYears: createSubmissionDto.yearsOfExperience ?? null,
       experienceLevel: createSubmissionDto.experienceLevel ?? null,
       workType: createSubmissionDto.workType ?? null,
       isAnonymized: createSubmissionDto.anonymize ?? false,

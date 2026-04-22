@@ -29,14 +29,11 @@ export class CreateSubmissionDto {
   company?: string;
 
   @ApiPropertyOptional({
-    description: 'ISO 3166-1 alpha-2 country code',
-    example: 'LK',
-    minLength: 2,
-    maxLength: 2,
+    description: 'Country name or ISO 3166-1 alpha-2 code',
+    example: 'Sri Lanka',
   })
   @IsOptional()
   @IsString()
-  @Length(2, 2)
   country?: string;
 
   @ApiPropertyOptional({ description: 'City name', example: 'Colombo' })
@@ -45,14 +42,14 @@ export class CreateSubmissionDto {
   city?: string;
 
   @ApiProperty({
-    description: 'Gross salary amount (minimum 1)',
-    example: 150000,
+    description: 'Gross monthly salary amount (minimum 1)',
+    example: 75000,
     minimum: 1,
   })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(1)
-  salaryAmount!: number;
+  monthlySalaryLKR!: number;
 
   @ApiPropertyOptional({
     description: 'ISO 4217 currency code',
@@ -76,7 +73,7 @@ export class CreateSubmissionDto {
   @IsNumber()
   @Min(0)
   @Max(60)
-  experienceYears?: number;
+  yearsOfExperience?: number;
 
   @ApiPropertyOptional({
     description: 'Seniority level',
