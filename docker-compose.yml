@@ -44,6 +44,8 @@ services:
         condition: service_started
       stats-service:
         condition: service_started
+      salary-service:
+        condition: service_started
     restart: on-failure
 
   # --- Kafka (KRaft mode — no ZooKeeper) ---
@@ -93,21 +95,25 @@ services:
         condition: service_healthy
     restart: on-failure
 
-  # --- Salary Microservice --- (not yet implemented)
-  # salary-service:
-  #   build:
-  #     context: ./salary-service
-  #   container_name: salary-service
-  #   environment:
-  #     - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=salary_schema&sslmode=disable
-  #   ports:
-  #     - "8082:8080"
-  #   networks:
-  #     - watup-internal
-  #   depends_on:
-  #     postgres-db:
-  #       condition: service_healthy
-  #   restart: on-failure
+  # --- Salary Microservice ---
+  salary-service:
+    build:
+      context: ./salary-service
+    container_name: salary-service
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=salary_schema&sslmode=disable
+      - KAFKA_BROKERS=kafka:9092
+    ports:
+      - "8082:8080"
+    networks:
+      - watup-internal
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: on-failure
 
   # --- Search Microservice ---
   search-service:
@@ -115,8 +121,7 @@ services:
       context: ./search-service
     container_name: search-service
     environment:
-      # Change the url format according to the microservice and delete this comment once done :)
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=salary_schema&sslmode=disable
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?sslmode=disable
     ports:
       - "8083:8080"
     networks:

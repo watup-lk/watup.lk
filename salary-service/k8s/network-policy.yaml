@@ -1,0 +1,65 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: salary-service-policy
+  namespace: app
+spec:
+  podSelector:
+    matchLabels:
+      app: salary-service
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    # Allow HTTP from NGINX Ingress Controller (external traffic routed via Ingress)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8080
+          protocol: TCP
+
+    # Allow HTTP from BFF (salary data requested through the API gateway)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: bff
+      ports:
+        - port: 8080
+          protocol: TCP
+
+    # Allow kubelet health probes (no namespace selector — kubelet runs on the node)
+    - ports:
+        - port: 8080
+          protocol: TCP
+
+  egress:
+    # Allow writes to PostgreSQL
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: data
+          podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+
+    # Allow publishing salary events to Kafka
+    - to:
+        - podSelector:
+            matchLabels:
+              app: kafka
+      ports:
+        - port: 9092
+          protocol: TCP
+
+    # Allow DNS resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
