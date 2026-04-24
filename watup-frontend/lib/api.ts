@@ -41,7 +41,18 @@ function authHeaders(token: string) {
 export async function submitSalary(
   data: Omit<SalarySubmission, 'id' | 'status' | 'upvotes' | 'downvotes' | 'createdAt'>
 ): Promise<SalarySubmission> {
-  return request('/api/salary', { method: 'POST', body: JSON.stringify(data) });
+  const payload = {
+    role:               data.role,
+    company:            data.company,
+    country:            data.country,
+    currency:           data.currency,
+    experience_level:   data.experienceLevel,
+    work_type:          data.workType,
+    monthly_salary_lkr: data.monthlySalaryLKR,
+    years_of_experience: data.yearsOfExperience,
+    anonymized:         data.anonymize,
+  };
+  return request('/api/salary', { method: 'POST', body: JSON.stringify(payload) });
 }
 
 // ── Search ─────────────────────────────────────────────────────────────────
@@ -51,7 +62,8 @@ export async function searchSalaries(
   const params = new URLSearchParams(
     Object.entries(filters).filter(([, v]) => v !== undefined) as [string, string][]
   );
-  return request(`/api/search?${params.toString()}`);
+  const res = await request<{ results: SearchResult[] | null }>(`/api/search?${params.toString()}`);
+  return res.results ?? [];
 }
 
 // ── Stats ──────────────────────────────────────────────────────────────────

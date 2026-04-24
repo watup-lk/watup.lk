@@ -84,8 +84,8 @@ func (r *PostgresRepo) Search(ctx context.Context, f SearchFilter) (SearchResult
 		i++
 	}
 	if f.Query != "" {
-		conds = append(conds, `to_tsvector('english', coalesce(s.role,'') || ' ' || coalesce(s.company,'')) @@ plainto_tsquery('english', $`+itoa(i)+")")
-		args = append(args, f.Query)
+		conds = append(conds, `(s.role ILIKE $`+itoa(i)+` OR s.company ILIKE $`+itoa(i)+")")
+		args = append(args, "%"+f.Query+"%")
 		i++
 	}
 
