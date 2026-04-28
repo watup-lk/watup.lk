@@ -36,6 +36,7 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		Country:         q.Get("country"),
 		ExperienceLevel: q.Get("experience_level"),
 		Query:           q.Get("query"),
+		Status:          q.Get("status"),
 		Page:            page,
 		Limit:           limit,
 	}

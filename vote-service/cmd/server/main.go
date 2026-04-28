@@ -37,8 +37,28 @@ func main() {
 
 	voteSvc := service.NewVoteService(repo, producer)
 
-	// 3. HTTP server for BFF integration (POST /vote/:id)
+	// 3. HTTP server for BFF integration
 	mux := http.NewServeMux()
+
+	mux.HandleFunc("/vote/counts", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		counts, err := voteSvc.GetVoteCounts(r.Context())
+		if err != nil {
+			log.Printf("GetVoteCounts error: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"results": counts,
+		})
+	})
+
 	mux.HandleFunc("/vote/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

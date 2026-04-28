@@ -30,6 +30,7 @@ type SearchFilter struct {
 	Country         string
 	ExperienceLevel string
 	Query           string
+	Status          string
 	Page            int
 	Limit           int
 }
@@ -59,7 +60,12 @@ func (r *PostgresRepo) Ping(ctx context.Context) error {
 }
 
 func (r *PostgresRepo) Search(ctx context.Context, f SearchFilter) (SearchResult, error) {
-	args := []any{"APPROVED"}
+	status := f.Status
+	if status == "" {
+		status = "APPROVED"
+	}
+
+	args := []any{status}
 	conds := []string{"s.status = $1"}
 	i := 2
 

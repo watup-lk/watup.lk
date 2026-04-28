@@ -128,3 +128,37 @@ func (r *PostgresRepo) UpdateVoteCountForSwitch(ctx context.Context, submissionI
 	}
 	return nil
 }
+
+type VoteCount struct {
+	SubmissionID string `json:"submission_id"`
+	UpCount      int    `json:"up_count"`
+	DownCount    int    `json:"down_count"`
+}
+
+func (r *PostgresRepo) GetVoteCounts(ctx context.Context) ([]VoteCount, error) {
+	query := `
+		SELECT submission_id, up_count, down_count
+		FROM community_schema.vote_counts
+	`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []VoteCount
+	for rows.Next() {
+		var item VoteCount
+		err := rows.Scan(&item.SubmissionID, &item.UpCount, &item.DownCount)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+
+	if items == nil {
+		items = []VoteCount{}
+	}
+	return items, nil
+}
+
