@@ -175,3 +175,13 @@ jobs:
         run: |
           docker push "${{ steps.meta.outputs.sha_tag }}"
           docker push "${{ steps.meta.outputs.latest_tag }}"
+
+      - name: Trigger k8s deployment
+        run: |
+          gh api repos/watup-lk/watup.lk-k8s-deployment-1/dispatches \
+            --method POST \
+            -f event_type=service-updated \
+            -f client_payload[service_name]="${{ env.IMAGE_NAME }}" \
+            -f client_payload[image_tag]="${{ github.sha }}"
+        env:
+          GH_TOKEN: ${{ secrets.K8S_DEPLOY_TOKEN }}
