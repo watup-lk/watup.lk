@@ -74,15 +74,60 @@ app.post('/api/vote/:id', requireAuth, async (req: Request, res: Response) => {
 });
 
 // ── Vote queue (protected) — PENDING submissions from search-service ──────────
-app.get('/api/vote/queue', requireAuth, async (_req: Request, res: Response) => {
+app.get('/api/vote/queue', requireAuth, async (req: Request, res: Response) => {
   try {
-    const path = '/search?limit=50';
-    const upstream = await searchFetch(path);
-    if (!upstream.ok) { res.status(upstream.status).json({ message: 'upstream error' }); return; }
-    const body = await upstream.json() as { results: unknown[] };
-    res.json(body.results);
+    const filter = req.query.filter as string || 'all';
+    const APPROVAL_THRESHOLD = 5;
+
+    // 1. Fetch from search-service
+    let searchPath = '/search?status=PENDING&limit=50';
+    if (filter === 'recently-approved') {
+        searchPath = '/search?status=APPROVED&limit=50';
+    }
+    const searchRes = await searchFetch(searchPath);
+    if (!searchRes.ok) { res.status(searchRes.status).json({ message: 'search service error' }); return; }
+    const searchBody = await searchRes.json() as { results: any[] };
+
+    // 2. Fetch up-to-date counts from vote-service
+    const voteRes = await fetch(`${VOTE_HTTP_URL}/vote/counts`);
+    if (!voteRes.ok) { res.status(voteRes.status).json({ message: 'vote service error' }); return; }
+    const voteBody = await voteRes.json() as { results: any[] };
+
+    const voteMap = new Map();
+    voteBody.results.forEach((v: any) => voteMap.set(v.submission_id, v));
+
+    // 3. Merge data
+    let merged = searchBody.results.map((s: any) => {
+        const counts = voteMap.get(s.id) || { up_count: 0, down_count: 0 };
+        return {
+            ...s, // Preserve all original search-service fields just in case
+            id: s.id,
+            role: s.role,
+            company: s.company,
+            country: s.country,
+            city: s.city,
+            monthlySalaryLKR: s.monthlySalaryLKR,
+            currency: s.currency,
+            yearsOfExperience: s.yearsOfExperience,
+            experienceLevel: s.experienceLevel,
+            workType: s.workType,
+            anonymize: s.anonymize,
+            status: s.status,
+            createdAt: s.createdAt,
+            // Overwrite with the latest, high-performance async counts
+            upvotes: counts.up_count,
+            downvotes: counts.down_count
+        };
+    });
+
+    // 4. Filter if needs-vote
+    if (filter === 'needs-vote') {
+        merged = merged.filter((m: any) => m.upvotes === APPROVAL_THRESHOLD - 1);
+    }
+
+    res.json(merged);
   } catch {
-    res.status(502).json({ message: 'search service unavailable' });
+    res.status(502).json({ message: 'service unavailable' });
   }
 });
 

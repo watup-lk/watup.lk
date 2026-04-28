@@ -68,3 +68,7 @@ func (s *VoteService) HandleThresholdReached(ctx context.Context, submissionID s
 
 	return thresholdReached
 }
+
+func (s *VoteService) GetVoteCounts(ctx context.Context) ([]repository.VoteCount, error) {
+	return s.repo.GetVoteCounts(ctx)
+}
