@@ -24,12 +24,13 @@ func (r *PostgresRepo) RecordVote(ctx context.Context, submissionID, userID, vot
 	// 1. Insert the vote (Conflict handles the "one vote per user" rule)
 	query := `
 		INSERT INTO votes (submission_id, user_id, vote_type)
-		VALUES ($1, $2, $3) RETURNING vote_type
-		ON CONFLICT (submission_id, user_id) DO UPDATE SET vote_type = $3 RETURNING submission_id
+		VALUES ($1, $2, $3)
+		ON CONFLICT (submission_id, user_id) DO UPDATE SET vote_type = $3
+		RETURNING vote_type
 	`
-	
+
 	var returnedValue string
-	returnedValue, err = tx.ExecContext(ctx, query, submissionID, userID, voteType)
+	err = tx.QueryRowContext(ctx, query, submissionID, userID, voteType).Scan(&returnedValue)
 	if err != nil {
 		return 0, err
 	}
