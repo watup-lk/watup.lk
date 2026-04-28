@@ -19,7 +19,7 @@ permissions:
   security-events: write
 
 env:
-  GO_VERSION: "1.24"
+  GO_VERSION: "1.25"
   IMAGE_NAME: search-service
   MIN_COVERAGE: "80"
 

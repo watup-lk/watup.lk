@@ -1,6 +1,6 @@
 module github.com/watup-lk/identity-service
 
-go 1.24.0
+go 1.25.9
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.9.0
