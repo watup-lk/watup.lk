@@ -16,7 +16,7 @@ on:
 
 permissions:
   contents: read
-  security-events: write
+  security-events: read
 
 env:
   GO_VERSION: "1.25"
@@ -59,6 +59,7 @@ jobs:
 
       - name: Download and verify dependencies
         run: |
+          go mod tidy
           go mod download
           go mod verify
 
