@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 	"github.com/watup-lk/search-service/internal/config"
 	"github.com/watup-lk/search-service/internal/handlers"
+	"github.com/watup-lk/search-service/internal/kafka"
 	"github.com/watup-lk/search-service/internal/repository"
 )
 
@@ -22,6 +24,17 @@ func main() {
 
 	if cfg.DatabaseURL == "" {
 		log.Fatal("[startup] DATABASE_URL is required")
+	}
+
+	hasValidBroker := false
+	for _, b := range cfg.KafkaBrokers {
+		if strings.TrimSpace(b) != "" {
+			hasValidBroker = true
+			break
+		}
+	}
+	if !hasValidBroker {
+		log.Fatal("[startup] KAFKA_BROKERS must contain at least one broker address")
 	}
 
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
@@ -38,6 +51,8 @@ func main() {
 		log.Fatalf("[startup] database ping failed: %v", err)
 	}
 	log.Println("[startup] connected to PostgreSQL")
+
+	consumer := kafka.NewConsumer(cfg.KafkaBrokers)
 
 	repo := repository.NewPostgresRepo(db)
 	searchH := handlers.NewSearchHandler(repo)
@@ -56,13 +71,19 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go consumer.Run(ctx)
+
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		sig := <-sigCh
 		log.Printf("[shutdown] received %v — shutting down", sig)
-		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		cancel()
+		shutCtx, shutCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutCancel()
 		if err := srv.Shutdown(shutCtx); err != nil {
 			log.Printf("[shutdown] error: %v", err)
 		}
@@ -72,6 +93,9 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Printf("[http] server error: %v", err)
 	}
+
+	<-ctx.Done()
+	log.Println("[shutdown] search-service stopped")
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
