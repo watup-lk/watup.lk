@@ -1,6 +1,6 @@
 module github.com/watup-lk/identity-service
 
-go 1.24.0
+go 1.25.9
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.9.0
@@ -11,7 +11,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/segmentio/kafka-go v0.4.50
 	golang.org/x/crypto v0.46.0
-	google.golang.org/grpc v1.79.1
+	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.10
 )
 

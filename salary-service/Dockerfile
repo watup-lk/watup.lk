@@ -7,7 +7,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o search-service ./cmd/server/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o salary-service ./cmd/server/main.go
 
 FROM alpine:3.21
 
@@ -15,7 +15,7 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
-COPY --from=builder /app/search-service .
+COPY --from=builder /app/salary-service .
 
 EXPOSE 8080
 
@@ -23,4 +23,4 @@ RUN addgroup -S -g 10001 appgroup \
  && adduser  -S -u 10001 -G appgroup appuser
 USER appuser
 
-CMD ["./search-service"]
+CMD ["./salary-service"]

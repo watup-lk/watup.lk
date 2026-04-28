@@ -8,6 +8,7 @@ const PORT = process.env.PORT ?? '8080';
 
 const IDENTITY_URL  = process.env.IDENTITY_SERVICE_URL  ?? 'http://identity-service:8080';
 const SEARCH_URL    = process.env.SEARCH_SERVICE_URL    ?? 'http://search-service:8080';
+const SALARY_URL    = process.env.SALARY_SERVICE_URL    ?? 'http://salary-service:8080';
 const STATS_URL     = process.env.STATS_SERVICE_URL     ?? 'http://stats-service:8080';
 const VOTE_HTTP_URL = process.env.VOTE_HTTP_SERVICE_URL ?? 'http://vote-service:8081';
 
@@ -35,14 +36,21 @@ app.get('/health/ready', (_req, res) => res.json({ status: 'ok' }));
 app.use('/api/auth', createProxyMiddleware({
   target:       IDENTITY_URL,
   changeOrigin: true,
-  pathRewrite:  { '^/': '/auth/' },
+  pathRewrite:  { '^/': '/auth' },
 }));
 
 // ── Search (public) ───────────────────────────────────────────────────────────
 app.use('/api/search', createProxyMiddleware({
   target:       SEARCH_URL,
   changeOrigin: true,
-  pathRewrite:  { '^/': '/search/' },
+  pathRewrite:  { '^/': '/search' },
+}));
+
+// ── Salary (public — supports anonymous submissions) ──────────────────────────
+app.use('/api/salary', createProxyMiddleware({
+  target:       SALARY_URL,
+  changeOrigin: true,
+  pathRewrite:  { '^/': '/salary' },
 }));
 
 // Body parser — registered after proxy routes so their streams are not consumed
@@ -66,12 +74,9 @@ app.post('/api/vote/:id', requireAuth, async (req: Request, res: Response) => {
 });
 
 // ── Vote queue (protected) — PENDING submissions from search-service ──────────
-app.get('/api/vote/queue', requireAuth, async (req: Request, res: Response) => {
+app.get('/api/vote/queue', requireAuth, async (_req: Request, res: Response) => {
   try {
-    const filter = req.query.filter as string | undefined;
-    const path = filter === 'recently-approved'
-      ? '/search?limit=50'
-      : '/search?status=PENDING&limit=50';
+    const path = '/search?limit=50';
     const upstream = await searchFetch(path);
     if (!upstream.ok) { res.status(upstream.status).json({ message: 'upstream error' }); return; }
     const body = await upstream.json() as { results: unknown[] };
@@ -158,5 +163,6 @@ app.listen(PORT, () => {
   console.log(`bff listening on :${PORT}`);
   console.log(`  identity → ${IDENTITY_URL}`);
   console.log(`  search   → ${SEARCH_URL}`);
+  console.log(`  salary   → ${SALARY_URL}`);
   console.log(`  stats    → ${STATS_URL}`);
 });

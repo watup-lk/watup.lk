@@ -34,7 +34,7 @@ export default function SearchModal({ onClose }: SearchModalProps) {
     }
     setLoading(true);
     try {
-      const data = await searchSalaries({ query: q, country: 'Sri Lanka' });
+      const data = await searchSalaries({ query: q });
       setResults(data);
       setSelectedIdx(0);
     } catch {
@@ -104,7 +104,7 @@ export default function SearchModal({ onClose }: SearchModalProps) {
               <div className={styles.empty}>No results found</div>
             )}
 
-            {results.map((r, idx) => (
+            {results?.map((r, idx) => (
               <div
                 key={r.id}
                 className={`${styles.result} ${idx === selectedIdx ? styles.resultSelected : ''}`}

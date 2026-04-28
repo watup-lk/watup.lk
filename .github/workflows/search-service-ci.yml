@@ -1,0 +1,297 @@
+name: Search Service CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "search-service/**"
+      - ".github/workflows/search-service-ci.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "search-service/**"
+      - ".github/workflows/search-service-ci.yml"
+
+permissions:
+  contents: read
+  security-events: read
+
+env:
+  GO_VERSION: "1.25"
+  IMAGE_NAME: search-service
+  MIN_COVERAGE: "80"
+
+jobs:
+  # ── 1. Test & Code Quality ────────────────────────────────────────────────────
+  test:
+    name: Test & Quality
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: search-service
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U testuser"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: search-service/go.sum
+
+      - name: Download and verify dependencies
+        run: |
+          go mod tidy
+          go mod download
+          go mod verify
+
+      - name: go vet (static analysis)
+        run: go vet ./...
+
+      - name: Run unit tests with race detector
+        run: |
+          go test -v -race -covermode=atomic \
+            -coverpkg=./internal/handlers/...,./internal/config/... \
+            -coverprofile=coverage.out \
+            ./...
+
+      - name: Enforce minimum coverage (${{ env.MIN_COVERAGE }}%)
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Coverage: ${COVERAGE}%"
+          if [ "$(echo "${COVERAGE} < ${{ env.MIN_COVERAGE }}" | bc -l)" -eq 1 ]; then
+            echo "FAIL: Coverage ${COVERAGE}% is below minimum ${{ env.MIN_COVERAGE }}%"
+            exit 1
+          fi
+          echo "✓ Coverage ${COVERAGE}% meets minimum ${{ env.MIN_COVERAGE }}%"
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: search-service/coverage.out
+          retention-days: 7
+
+  # ── 2. Security Scanning ──────────────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+    defaults:
+      run:
+        working-directory: search-service
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: search-service/go.sum
+
+      - name: Sync go.sum
+        run: go mod tidy
+
+      - name: Run gosec (Go security scanner)
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -fmt sarif -out gosec-results.sarif ./... || true
+
+      - name: Upload gosec SARIF results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('search-service/gosec-results.sarif') != ''
+        with:
+          sarif_file: search-service/gosec-results.sarif
+          category: gosec-search
+
+      - name: Check for known vulnerable dependencies (govulncheck)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  # ── 3. Build Docker image & transfer to Linux node ───────────────────────────
+  build:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    defaults:
+      run:
+        working-directory: search-service
+
+    outputs:
+      sha_tag: ${{ steps.meta.outputs.sha_tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: meta
+        run: |
+          SHA_TAG="${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "sha_tag=${SHA_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --tag "${{ steps.meta.outputs.sha_tag }}" \
+            --tag "${{ env.IMAGE_NAME }}:latest" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            .
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.sha_tag }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+      - name: Upload Trivy SARIF results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-search
+
+      - name: Export image tar
+        run: docker save "${{ steps.meta.outputs.sha_tag }}" -o search-service.tar
+
+      - name: Transfer image to Linux node
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LINUX_NODE_HOST }}
+          username: ${{ secrets.LINUX_NODE_USER }}
+          key: ${{ secrets.LINUX_NODE_SSH_KEY }}
+          source: search-service/search-service.tar
+          target: /tmp/
+
+      - name: Import image into k3s
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LINUX_NODE_HOST }}
+          username: ${{ secrets.LINUX_NODE_USER }}
+          key: ${{ secrets.LINUX_NODE_SSH_KEY }}
+          script: |
+            sudo k3s ctr images import /tmp/search-service/search-service.tar
+            rm -f /tmp/search-service/search-service.tar
+            echo "✓ Image imported into k3s"
+
+  # ── 4. Deploy to k3s on Linux node ───────────────────────────────────────────
+  deploy:
+    name: Deploy to k3s
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply manifests & rolling update
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LINUX_NODE_HOST }}
+          username: ${{ secrets.LINUX_NODE_USER }}
+          key: ${{ secrets.LINUX_NODE_SSH_KEY }}
+          script: |
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+            kubectl apply -f /opt/watup/search-service/k8s/configmap.yaml
+            kubectl apply -f /opt/watup/search-service/k8s/secret.yaml
+
+            kubectl set image deployment/search-service \
+              search-service="${{ env.IMAGE_NAME }}:${{ github.sha }}" \
+              -n app
+
+            kubectl apply -f /opt/watup/search-service/k8s/deployment.yaml
+            kubectl apply -f /opt/watup/search-service/k8s/service.yaml
+            kubectl apply -f /opt/watup/search-service/k8s/hpa.yaml
+            kubectl apply -f /opt/watup/search-service/k8s/pdb.yaml
+            kubectl apply -f /opt/watup/search-service/k8s/network-policy.yaml
+
+            kubectl rollout status deployment/search-service -n app --timeout=300s
+            echo "✓ Rollout complete"
+
+      - name: Deployment verification
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LINUX_NODE_HOST }}
+          username: ${{ secrets.LINUX_NODE_USER }}
+          key: ${{ secrets.LINUX_NODE_SSH_KEY }}
+          script: |
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+            echo "=== Pods ==="
+            kubectl get pods -l app=search-service -n app -o wide
+            echo ""
+            echo "=== HPA ==="
+            kubectl get hpa search-service-hpa -n app
+            echo ""
+            echo "=== PDB ==="
+            kubectl get pdb search-service-pdb -n app
+
+      - name: Smoke tests
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LINUX_NODE_HOST }}
+          username: ${{ secrets.LINUX_NODE_USER }}
+          key: ${{ secrets.LINUX_NODE_SSH_KEY }}
+          script: |
+            BASE_URL="http://localhost"
+
+            check() {
+              local name="$1" expected="$2"
+              local actual
+              actual=$(eval "$3" || echo "000")
+              if [ "$actual" = "$expected" ]; then
+                echo "✓ $name → $actual"
+              else
+                echo "✗ $name → $actual (expected $expected)"
+                exit 1
+              fi
+            }
+
+            check "/health/live"  "200" \
+              "curl -s -o /dev/null -w '%{http_code}' --retry 5 --retry-delay 5 '${BASE_URL}/search/health/live'"
+
+            check "/health/ready" "200" \
+              "curl -s -o /dev/null -w '%{http_code}' --retry 5 --retry-delay 5 '${BASE_URL}/search/health/ready'"
+
+            # GET /search with no params must return 200 with results (or empty array), not an error
+            check "GET /search (no params)" "200" \
+              "curl -s -o /dev/null -w '%{http_code}' '${BASE_URL}/search'"
+
+            echo "✓ All smoke tests passed"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deployment of search-service failed. Check logs above."
+          echo "To inspect: kubectl describe pods -l app=search-service -n app"
+          echo "To rollback: kubectl rollout undo deployment/search-service -n app"
+          echo "To view logs: kubectl logs -l app=search-service -n app --tail=100"

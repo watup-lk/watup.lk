@@ -1,0 +1,169 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/watup-lk/salary-service/internal/repository"
+)
+
+type fakeRepo struct {
+	submissions []repository.Submission
+	created     repository.Submission
+	err         error
+}
+
+func (f *fakeRepo) FindApproved(_ context.Context, _ repository.FindFilter) ([]repository.Submission, error) {
+	return f.submissions, f.err
+}
+
+func (f *fakeRepo) Create(_ context.Context, _ repository.CreateParams) (repository.Submission, error) {
+	return f.created, f.err
+}
+
+type fakeKafka struct{}
+
+func (f *fakeKafka) PublishSubmissionCreated(_ context.Context, _ string) {}
+
+func newTestService(repo salaryRepo) *SalaryService {
+	return &SalaryService{repo: repo, kafka: &fakeKafka{}}
+}
+
+func TestList_OK(t *testing.T) {
+	repo := &fakeRepo{submissions: []repository.Submission{
+		{ID: "1", Role: "Engineer", Country: "LK", Currency: "LKR", Status: "APPROVED", CreatedAt: time.Now()},
+	}}
+	svc := newTestService(repo)
+	results, err := svc.List(context.Background(), repository.FindFilter{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+}
+
+func TestList_Error(t *testing.T) {
+	repo := &fakeRepo{err: errors.New("db error")}
+	svc := newTestService(repo)
+	_, err := svc.List(context.Background(), repository.FindFilter{})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestCreate_OK(t *testing.T) {
+	now := time.Now()
+	repo := &fakeRepo{created: repository.Submission{
+		ID: "abc", Role: "Engineer", Country: "LK", Currency: "LKR",
+		SalaryAmount: 100000, Status: "PENDING", CreatedAt: now,
+	}}
+	svc := newTestService(repo)
+	result, err := svc.Create(context.Background(), CreateRequest{
+		Role:             "Engineer",
+		MonthlySalaryLKR: 100000,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "abc" {
+		t.Errorf("expected id abc, got %s", result.ID)
+	}
+	if result.Country != "LK" {
+		t.Errorf("expected country LK, got %s", result.Country)
+	}
+	if result.Currency != "LKR" {
+		t.Errorf("expected currency LKR, got %s", result.Currency)
+	}
+}
+
+func TestCreate_DefaultsCountryAndCurrency(t *testing.T) {
+	now := time.Now()
+	repo := &fakeRepo{created: repository.Submission{
+		ID: "1", Role: "Dev", Country: "LK", Currency: "LKR",
+		SalaryAmount: 50000, Status: "PENDING", CreatedAt: now,
+	}}
+	svc := newTestService(repo)
+	result, err := svc.Create(context.Background(), CreateRequest{
+		Role:             "Dev",
+		MonthlySalaryLKR: 50000,
+		Country:          "",
+		Currency:         "",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Country != "LK" {
+		t.Errorf("expected default country LK, got %s", result.Country)
+	}
+	if result.Currency != "LKR" {
+		t.Errorf("expected default currency LKR, got %s", result.Currency)
+	}
+}
+
+func TestCreate_Error(t *testing.T) {
+	repo := &fakeRepo{err: errors.New("insert failed")}
+	svc := newTestService(repo)
+	_, err := svc.Create(context.Background(), CreateRequest{
+		Role:             "Engineer",
+		MonthlySalaryLKR: 100000,
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestToResponse_Anonymized(t *testing.T) {
+	company := "Acme"
+	sub := repository.Submission{
+		ID:           "1",
+		Role:         "Eng",
+		Company:      &company,
+		Country:      "LK",
+		Currency:     "LKR",
+		SalaryAmount: 100000,
+		IsAnonymized: true,
+		Status:       "APPROVED",
+		CreatedAt:    time.Now(),
+	}
+	resp := toResponse(sub)
+	if resp.Company != nil {
+		t.Errorf("expected nil company for anonymized submission")
+	}
+}
+
+func TestToResponse_NotAnonymized(t *testing.T) {
+	company := "Acme"
+	sub := repository.Submission{
+		ID:           "1",
+		Role:         "Eng",
+		Company:      &company,
+		Country:      "LK",
+		Currency:     "LKR",
+		SalaryAmount: 100000,
+		IsAnonymized: false,
+		Status:       "APPROVED",
+		CreatedAt:    time.Now(),
+	}
+	resp := toResponse(sub)
+	if resp.Company == nil || *resp.Company != "Acme" {
+		t.Errorf("expected company Acme, got %v", resp.Company)
+	}
+}
+
+func TestTrimPtr(t *testing.T) {
+	if trimPtr(nil) != nil {
+		t.Error("expected nil for nil input")
+	}
+	s := "  "
+	if trimPtr(&s) != nil {
+		t.Error("expected nil for whitespace-only string")
+	}
+	s2 := "  hello  "
+	got := trimPtr(&s2)
+	if got == nil || *got != "hello" {
+		t.Errorf("expected 'hello', got %v", got)
+	}
+}
