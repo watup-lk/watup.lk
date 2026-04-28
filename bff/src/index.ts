@@ -36,7 +36,7 @@ app.get('/health/ready', (_req, res) => res.json({ status: 'ok' }));
 app.use('/api/auth', createProxyMiddleware({
   target:       IDENTITY_URL,
   changeOrigin: true,
-  pathRewrite:  { '^/': '/auth' },
+  pathRewrite:  { '^/': '/auth/' },
 }));
 
 // ── Search (public) ───────────────────────────────────────────────────────────
