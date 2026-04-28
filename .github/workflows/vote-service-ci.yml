@@ -1,18 +1,18 @@
-name: Identity Service CI/CD
+name: Vote Service CI/CD
 
 on:
   push:
     branches:
       - main
     paths:
-      - "identity-service/**"
-      - ".github/workflows/identity-service-ci.yml"
+      - "vote-service/**"
+      - ".github/workflows/vote-service-ci.yml"
   pull_request:
     branches:
       - main
     paths:
-      - "identity-service/**"
-      - ".github/workflows/identity-service-ci.yml"
+      - "vote-service/**"
+      - ".github/workflows/vote-service-ci.yml"
 
 permissions:
   contents: read
@@ -20,8 +20,8 @@ permissions:
 
 env:
   GO_VERSION: "1.25"
-  SERVICE_PATH: identity-service
-  IMAGE_NAME: identity-service
+  SERVICE_PATH: vote-service
+  IMAGE_NAME: vote-service
 
 jobs:
   test:
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: identity-service
+        working-directory: vote-service
 
     services:
       postgres:
@@ -68,7 +68,7 @@ jobs:
       - name: Run tests
         run: |
           go test -v -race -covermode=atomic \
-            -coverpkg=./internal/service/...,./internal/handlers/...,./internal/middleware/...,./internal/config/...,./internal/grpcserver/... \
+            -coverpkg=./internal/config/...,./internal/service/...,./internal/repository/... \
             -coverprofile=coverage.out \
             ./...
           go tool cover -func=coverage.out | tee coverage-summary.txt
@@ -78,10 +78,10 @@ jobs:
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: identity-service-coverage
+          name: vote-service-coverage
           path: |
-            identity-service/coverage.out
-            identity-service/coverage-summary.txt
+            vote-service/coverage.out
+            vote-service/coverage-summary.txt
           retention-days: 7
 
   sonarqube:
@@ -95,8 +95,8 @@ jobs:
       - name: Download coverage report
         uses: actions/download-artifact@v4
         with:
-          name: identity-service-coverage
-          path: identity-service
+          name: vote-service-coverage
+          path: vote-service
 
       - name: SonarQube scan
         uses: sonarsource/sonarqube-scan-action@master
@@ -104,10 +104,10 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
-          projectBaseDir: identity-service
+          projectBaseDir: vote-service
           args: >
-            -Dsonar.projectKey=watup-identity-service
-            -Dsonar.projectName=watup-identity-service
+            -Dsonar.projectKey=watup-vote-service
+            -Dsonar.projectName=watup-vote-service
             -Dsonar.go.coverage.reportPaths=coverage.out
 
   security:
@@ -116,7 +116,7 @@ jobs:
     needs: [test, sonarqube]
     defaults:
       run:
-        working-directory: identity-service
+        working-directory: vote-service
 
     steps:
       - name: Checkout
@@ -135,10 +135,10 @@ jobs:
 
       - name: Upload gosec SARIF
         uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('identity-service/gosec-results.sarif') != ''
+        if: always() && hashFiles('vote-service/gosec-results.sarif') != ''
         with:
-          sarif_file: identity-service/gosec-results.sarif
-          category: gosec-identity-service
+          sarif_file: vote-service/gosec-results.sarif
+          category: gosec-vote-service
 
       - name: Run govulncheck
         run: |
@@ -152,7 +152,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     defaults:
       run:
-        working-directory: identity-service
+        working-directory: vote-service
 
     steps:
       - name: Checkout
@@ -196,7 +196,7 @@ jobs:
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: trivy-results.sarif
-          category: trivy-identity-service
+          category: trivy-vote-service
 
       - name: Push Docker image to ACR
         run: |

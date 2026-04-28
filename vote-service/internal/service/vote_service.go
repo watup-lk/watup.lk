@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"strconv"
@@ -11,10 +12,19 @@ import (
 	"github.com/watup-lk/vote-service/internal/repository"
 )
 
+type voteRepo interface {
+	RecordVote(ctx context.Context, submissionID, userID, voteType string) (int, error)
+	ApproveSubmission(ctx context.Context, submissionID string) error
+}
+
+type thresholdPublisher interface {
+	PublishThresholdReached(ctx context.Context, submissionID string) error
+}
+
 type VoteService struct {
 	v1.UnimplementedVoteServiceServer
-	repo *repository.PostgresRepo
-	kafka *kafka.Producer
+	repo              voteRepo
+	kafka             thresholdPublisher
 	approvalThreshold int
 }
 
@@ -26,14 +36,17 @@ func NewVoteService(repo *repository.PostgresRepo, k *kafka.Producer) *VoteServi
 	} // Default fallback
 
 	return &VoteService{
-		repo: repo,
-		kafka: k,
+		repo:              repo,
+		kafka:             k,
 		approvalThreshold: threshold,
 	}
 }
 
 func (s *VoteService) RecordVote(ctx context.Context, req *v1.RecordVoteRequest) (*v1.RecordVoteResponse, error) {
-	userID := ctx.Value("user_id").(string)
+	userID, ok := ctx.Value("user_id").(string)
+	if !ok || userID == "" {
+		return nil, errors.New("missing authenticated user id")
+	}
 	return s.RecordVoteHTTP(ctx, req.SubmissionId, userID, req.VoteType)
 }
 
@@ -51,15 +64,20 @@ func (s *VoteService) RecordVoteHTTP(ctx context.Context, submissionID, userID s
 	thresholdReached := currentUpvotes >= s.approvalThreshold
 
 	if thresholdReached {
-		err := s.kafka.PublishThresholdReached(ctx, submissionID)
-		if err != nil {
-			log.Printf("Failed to publish threshold reached event: %v", err)
+		if err := s.repo.ApproveSubmission(ctx, submissionID); err != nil {
+			return nil, err
+		}
+		if s.kafka != nil {
+			err := s.kafka.PublishThresholdReached(ctx, submissionID)
+			if err != nil {
+				log.Printf("Failed to publish threshold reached event: %v", err)
+			}
 		}
 	}
 
 	return &v1.RecordVoteResponse{
-		Success: true,
-		Message: "Vote recorded successfully",
+		Success:          true,
+		Message:          "Vote recorded successfully",
 		ThresholdReached: thresholdReached,
 	}, nil
 }

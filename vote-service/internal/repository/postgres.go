@@ -26,7 +26,7 @@ func (r *PostgresRepo) RecordVote(ctx context.Context, submissionID, userID, vot
 		INSERT INTO votes (submission_id, user_id, vote_type)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (submission_id, user_id) DO UPDATE SET vote_type = $3`
-	
+
 	_, err = tx.ExecContext(ctx, query, submissionID, userID, voteType)
 	if err != nil {
 		return 0, err
@@ -41,4 +41,10 @@ func (r *PostgresRepo) RecordVote(ctx context.Context, submissionID, userID, vot
 	}
 
 	return count, tx.Commit()
+}
+
+func (r *PostgresRepo) ApproveSubmission(ctx context.Context, submissionID string) error {
+	const q = `UPDATE salary_schema.submissions SET status = 'APPROVED' WHERE id = $1 AND status = 'PENDING'`
+	_, err := r.db.ExecContext(ctx, q, submissionID)
+	return err
 }

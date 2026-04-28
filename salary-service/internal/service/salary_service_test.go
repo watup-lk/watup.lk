@@ -10,16 +10,18 @@ import (
 )
 
 type fakeRepo struct {
-	submissions []repository.Submission
-	created     repository.Submission
-	err         error
+	submissions  []repository.Submission
+	created      repository.Submission
+	err          error
+	createParams repository.CreateParams
 }
 
 func (f *fakeRepo) FindApproved(_ context.Context, _ repository.FindFilter) ([]repository.Submission, error) {
 	return f.submissions, f.err
 }
 
-func (f *fakeRepo) Create(_ context.Context, _ repository.CreateParams) (repository.Submission, error) {
+func (f *fakeRepo) Create(_ context.Context, params repository.CreateParams) (repository.Submission, error) {
+	f.createParams = params
 	return f.created, f.err
 }
 
@@ -100,6 +102,62 @@ func TestCreate_DefaultsCountryAndCurrency(t *testing.T) {
 	}
 	if result.Currency != "LKR" {
 		t.Errorf("expected default currency LKR, got %s", result.Currency)
+	}
+}
+
+func TestCreate_NormalizesAndTrimsCreateParams(t *testing.T) {
+	now := time.Now()
+	repo := &fakeRepo{created: repository.Submission{
+		ID: "abc", Role: "Engineer", Country: "LK", Currency: "LKR",
+		SalaryAmount: 100000, Status: "PENDING", CreatedAt: now,
+	}}
+	svc := newTestService(repo)
+	company := "  Acme  "
+	city := "  Colombo  "
+	level := "senior"
+	workType := "Hybrid"
+	years := 6
+
+	_, err := svc.Create(context.Background(), CreateRequest{
+		Role:              "  Engineer  ",
+		Company:           &company,
+		Country:           " lk ",
+		City:              &city,
+		MonthlySalaryLKR:  100000,
+		Currency:          " lkr ",
+		YearsOfExperience: &years,
+		ExperienceLevel:   &level,
+		WorkType:          &workType,
+		Anonymize:         true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	params := repo.createParams
+	if params.Role != "Engineer" {
+		t.Fatalf("expected trimmed role, got %q", params.Role)
+	}
+	if params.Country != "LK" || params.Currency != "LKR" {
+		t.Fatalf("expected normalized country/currency, got %q/%q", params.Country, params.Currency)
+	}
+	if params.Company == nil || *params.Company != "Acme" {
+		t.Fatalf("expected trimmed company, got %#v", params.Company)
+	}
+	if params.City == nil || *params.City != "Colombo" {
+		t.Fatalf("expected trimmed city, got %#v", params.City)
+	}
+	if params.ExperienceYears == nil || *params.ExperienceYears != 6 {
+		t.Fatalf("expected years to be forwarded, got %#v", params.ExperienceYears)
+	}
+	if params.ExperienceLevel != &level {
+		t.Fatalf("expected experience level pointer to be forwarded")
+	}
+	if params.WorkType != &workType {
+		t.Fatalf("expected work type pointer to be forwarded")
+	}
+	if !params.IsAnonymized {
+		t.Fatal("expected anonymized flag to be forwarded")
 	}
 }
 

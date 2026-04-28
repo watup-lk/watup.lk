@@ -1,6 +1,20 @@
 # watup.lk
 
-A microservice-based salary transparency platform for Sri Lanka, built as a cloud-native application deployed on Azure Kubernetes Service (AKS). Users can anonymously submit salary data, search and filter entries, vote on their trustworthiness, and explore salary analytics.
+A microservice-based salary transparency platform for Sri Lanka. Users can anonymously submit salary data, search and filter entries, vote on their trustworthiness, and explore salary analytics.
+
+Kubernetes and cloud deployment resources are kept outside this application repository in the separate `watup.lk-k8s-deployment` repo.
+
+## CI/CD
+
+Service workflows in `.github/workflows/` build, test, scan, and publish images to Azure Container Registry. AKS deployment is handled by the separate `watup.lk-k8s-deployment` repository.
+
+Required GitHub secrets for image publishing:
+
+- `AZURE_CREDENTIALS`
+- `ACR_NAME`
+- `ACR_LOGIN_SERVER`
+- `SONAR_TOKEN`
+- `SONAR_HOST_URL`
 
 ## Services
 

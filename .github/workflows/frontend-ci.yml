@@ -1,87 +1,61 @@
-name: Identity Service CI/CD
+name: Frontend CI/CD
 
 on:
   push:
     branches:
       - main
     paths:
-      - "identity-service/**"
-      - ".github/workflows/identity-service-ci.yml"
+      - "watup-frontend/**"
+      - ".github/workflows/frontend-ci.yml"
   pull_request:
     branches:
       - main
     paths:
-      - "identity-service/**"
-      - ".github/workflows/identity-service-ci.yml"
+      - "watup-frontend/**"
+      - ".github/workflows/frontend-ci.yml"
 
 permissions:
   contents: read
   security-events: write
 
 env:
-  GO_VERSION: "1.25"
-  SERVICE_PATH: identity-service
-  IMAGE_NAME: identity-service
+  NODE_VERSION: "20"
+  SERVICE_PATH: watup-frontend
+  IMAGE_NAME: watup-frontend
 
 jobs:
   test:
-    name: Test and Quality
+    name: Build and Test
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: identity-service
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_DB: testdb
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U testuser"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
+        working-directory: watup-frontend
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: ${{ env.SERVICE_PATH }}/go.sum
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.SERVICE_PATH }}/package-lock.json
 
-      - name: Download and verify dependencies
-        run: |
-          go mod tidy
-          go mod download
-          go mod verify
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Go vet
-        run: go vet ./...
+      - name: Build
+        run: npm run build
 
-      - name: Run tests
-        run: |
-          go test -v -race -covermode=atomic \
-            -coverpkg=./internal/service/...,./internal/handlers/...,./internal/middleware/...,./internal/config/...,./internal/grpcserver/... \
-            -coverprofile=coverage.out \
-            ./...
-          go tool cover -func=coverage.out | tee coverage-summary.txt
-          coverage="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%","",$3); print $3}')"
-          awk -v coverage="$coverage" 'BEGIN { if (coverage < 80) { printf "Coverage %.2f%% is below required 80%%\n", coverage; exit 1 } }'
+      - name: Test
+        run: npm test -- --coverage --watchAll=false
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: identity-service-coverage
-          path: |
-            identity-service/coverage.out
-            identity-service/coverage-summary.txt
+          name: frontend-coverage
+          path: watup-frontend/coverage/lcov.info
           retention-days: 7
 
   sonarqube:
@@ -95,8 +69,8 @@ jobs:
       - name: Download coverage report
         uses: actions/download-artifact@v4
         with:
-          name: identity-service-coverage
-          path: identity-service
+          name: frontend-coverage
+          path: watup-frontend/coverage
 
       - name: SonarQube scan
         uses: sonarsource/sonarqube-scan-action@master
@@ -104,11 +78,11 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
-          projectBaseDir: identity-service
+          projectBaseDir: watup-frontend
           args: >
-            -Dsonar.projectKey=watup-identity-service
-            -Dsonar.projectName=watup-identity-service
-            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.projectKey=watup-frontend
+            -Dsonar.projectName=watup-frontend
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
   security:
     name: Security and Vulnerability Scan
@@ -116,34 +90,32 @@ jobs:
     needs: [test, sonarqube]
     defaults:
       run:
-        working-directory: identity-service
+        working-directory: watup-frontend
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: ${{ env.SERVICE_PATH }}/go.sum
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.SERVICE_PATH }}/package-lock.json
 
-      - name: Run gosec
-        run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec -fmt sarif -out gosec-results.sarif ./... || true
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Upload gosec SARIF
-        uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('identity-service/gosec-results.sarif') != ''
+      - name: NPM audit
+        run: npm audit --audit-level=high --json > npm-audit.json || true
+
+      - name: Upload NPM audit report
+        uses: actions/upload-artifact@v4
+        if: always() && hashFiles('watup-frontend/npm-audit.json') != ''
         with:
-          sarif_file: identity-service/gosec-results.sarif
-          category: gosec-identity-service
-
-      - name: Run govulncheck
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+          name: frontend-npm-audit
+          path: watup-frontend/npm-audit.json
+          retention-days: 7
 
   publish:
     name: Build, Scan, and Push ACR Image
@@ -152,7 +124,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     defaults:
       run:
-        working-directory: identity-service
+        working-directory: watup-frontend
 
     steps:
       - name: Checkout
@@ -176,6 +148,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
+            --build-arg NEXT_PUBLIC_BFF_URL="${{ vars.NEXT_PUBLIC_BFF_URL }}" \
             --tag "${{ steps.meta.outputs.sha_tag }}" \
             --tag "${{ steps.meta.outputs.latest_tag }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
@@ -196,7 +169,7 @@ jobs:
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: trivy-results.sarif
-          category: trivy-identity-service
+          category: trivy-frontend
 
       - name: Push Docker image to ACR
         run: |
