@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -10,8 +11,13 @@ import (
 	"github.com/watup-lk/salary-service/internal/service"
 )
 
+type salaryServicer interface {
+	List(ctx context.Context, f repository.FindFilter) ([]service.SubmissionResponse, error)
+	Create(ctx context.Context, req service.CreateRequest) (service.SubmissionResponse, error)
+}
+
 type SalaryHandler struct {
-	svc *service.SalaryService
+	svc salaryServicer
 }
 
 func NewSalaryHandler(svc *service.SalaryService) *SalaryHandler {

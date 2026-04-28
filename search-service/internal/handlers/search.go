@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"math"
@@ -10,8 +11,12 @@ import (
 	"github.com/watup-lk/search-service/internal/repository"
 )
 
+type searcher interface {
+	Search(ctx context.Context, f repository.SearchFilter) (repository.SearchResult, error)
+}
+
 type SearchHandler struct {
-	repo *repository.PostgresRepo
+	repo searcher
 }
 
 func NewSearchHandler(repo *repository.PostgresRepo) *SearchHandler {

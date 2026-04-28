@@ -8,9 +8,18 @@ import (
 	"github.com/watup-lk/salary-service/internal/repository"
 )
 
+type salaryRepo interface {
+	FindApproved(ctx context.Context, f repository.FindFilter) ([]repository.Submission, error)
+	Create(ctx context.Context, p repository.CreateParams) (repository.Submission, error)
+}
+
+type kafkaPublisher interface {
+	PublishSubmissionCreated(ctx context.Context, submissionID string)
+}
+
 type SalaryService struct {
-	repo  *repository.PostgresRepo
-	kafka *kafka.Producer
+	repo  salaryRepo
+	kafka kafkaPublisher
 }
 
 func New(repo *repository.PostgresRepo, k *kafka.Producer) *SalaryService {
