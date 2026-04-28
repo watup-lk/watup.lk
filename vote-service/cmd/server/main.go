@@ -4,14 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log"
-	"net"
 	"net/http"
 	"strings"
 
 	_ "github.com/lib/pq"
-	"google.golang.org/grpc"
 
-	v1 "github.com/watup-lk/vote-service/api/proto/v1"
 	"github.com/watup-lk/vote-service/internal/config"
 	"github.com/watup-lk/vote-service/internal/kafka"
 	"github.com/watup-lk/vote-service/internal/repository"
@@ -41,65 +38,48 @@ func main() {
 	voteSvc := service.NewVoteService(repo, producer)
 
 	// 3. HTTP server for BFF integration (POST /vote/:id)
-	go func() {
-		mux := http.NewServeMux()
-		mux.HandleFunc("/vote/", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodPost {
-				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-				return
-			}
-
-			// Extract submission ID from path: /vote/{id}
-			submissionID := strings.TrimPrefix(r.URL.Path, "/vote/")
-			if submissionID == "" {
-				http.Error(w, "missing submission id", http.StatusBadRequest)
-				return
-			}
-
-			var body struct {
-				Type   string `json:"type"`
-				UserID string `json:"user_id"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				http.Error(w, "invalid body", http.StatusBadRequest)
-				return
-			}
-
-			voteType := v1.RecordVoteRequest_UPVOTE
-			if strings.ToLower(body.Type) == "down" {
-				voteType = v1.RecordVoteRequest_DOWNVOTE
-			}
-
-			ctx := r.Context()
-			resp, err := voteSvc.RecordVoteHTTP(ctx, submissionID, body.UserID, voteType)
-			if err != nil {
-				log.Printf("RecordVote error: %v", err)
-				http.Error(w, "internal error", http.StatusInternalServerError)
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(resp)
-		})
-
-		httpPort := cfg.HTTPPort
-		log.Printf("Vote HTTP server running on :%s", httpPort)
-		if err := http.ListenAndServe(":"+httpPort, mux); err != nil {
-			log.Fatalf("HTTP server failed: %v", err)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/vote/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
 		}
-	}()
 
-	// 4. gRPC Server
-	lis, err := net.Listen("tcp", ":"+cfg.Port)
-	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
-	}
+		// Extract submission ID from path: /vote/{id}
+		submissionID := strings.TrimPrefix(r.URL.Path, "/vote/")
+		if submissionID == "" {
+			http.Error(w, "missing submission id", http.StatusBadRequest)
+			return
+		}
 
-	s := grpc.NewServer()
-	v1.RegisterVoteServiceServer(s, voteSvc)
+		var body struct {
+			Type   string `json:"type"`
+			UserID string `json:"user_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid body", http.StatusBadRequest)
+			return
+		}
 
-	log.Printf("Vote gRPC service running on port %s", cfg.Port)
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+		voteType := "UP"
+		if strings.ToLower(body.Type) == "down" {
+			voteType = "DOWN"
+		}
+
+		ctx := r.Context()
+		resp, err := voteSvc.RecordVote(ctx, submissionID, body.UserID, voteType)
+		if err != nil {
+			log.Printf("RecordVote error: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	log.Printf("Vote HTTP server running on port %s", cfg.Port)
+	if err := http.ListenAndServe(":"+cfg.Port, mux); err != nil {
+		log.Fatalf("HTTP server failed: %v", err)
 	}
 }

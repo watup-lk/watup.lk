@@ -21,30 +21,36 @@ func (r *PostgresRepo) RecordVote(ctx context.Context, submissionID, userID, vot
 	}
 	defer tx.Rollback()
 
-	// 1. Insert the vote (Conflict handles the "one vote per user" rule)
+	// 1. Insert the vote and get the old vote type (if any)
 	query := `
-		INSERT INTO votes (submission_id, user_id, vote_type)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (submission_id, user_id) DO UPDATE SET vote_type = $3
-		RETURNING vote_type
+		WITH old_vote AS (
+			SELECT vote_type FROM votes WHERE submission_id = $1 AND user_id = $2
+		),
+		inserted AS (
+			INSERT INTO votes (submission_id, user_id, vote_type)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (submission_id, user_id) DO UPDATE SET vote_type = $3
+			RETURNING vote_type
+		)
+		SELECT COALESCE((SELECT vote_type FROM old_vote), '') AS old_vote_type
 	`
-
-	var returnedValue string
-	err = tx.QueryRowContext(ctx, query, submissionID, userID, voteType).Scan(&returnedValue)
+	
+	var oldVoteType string
+	err = tx.QueryRowContext(ctx, query, submissionID, userID, voteType).Scan(&oldVoteType)
 	if err != nil {
 		return 0, err
 	}
 
-	isSwitched := returnedValue != voteType
-
 	// 2. Update vote counts
-	if isSwitched {
-		err = r.UpdateVoteCountForSwitch(ctx, submissionID, voteType, tx)
+	if oldVoteType == "" {
+		// New vote
+		err = r.UpdateVoteCount(ctx, submissionID, voteType, tx)
 		if err != nil {
 			return 0, err
 		}
-	} else {
-		err = r.UpdateVoteCount(ctx, submissionID, voteType, tx)
+	} else if oldVoteType != voteType {
+		// Switched vote
+		err = r.UpdateVoteCountForSwitch(ctx, submissionID, voteType, tx)
 		if err != nil {
 			return 0, err
 		}
@@ -75,7 +81,7 @@ func (r *PostgresRepo) GetVoteCountIncreaseSql(voteType string) (string, int, in
 	`
 	var upVoteCount, downVoteCount int = 0, 0
 
-	if voteType == "UPVOTE" {
+	if voteType == "UP" {
 		sql += `
 			DO UPDATE SET up_count = vote_counts.up_count + 1;
 		`
@@ -101,10 +107,10 @@ func (r *PostgresRepo) UpdateVoteCount(ctx context.Context, submissionID string,
 
 func (r *PostgresRepo) getVoteValuesForSwitch(voteType string) (int, int) {
 	var upVoteCount, downVoteCount int = -1, -1
-	if voteType == "UPVOTE" {
-		upVoteCount = 0
+	if voteType == "UP" {
+		upVoteCount = 1
 	} else {
-		downVoteCount = 0
+		downVoteCount = 1
 	}
 	return upVoteCount, downVoteCount
 }
