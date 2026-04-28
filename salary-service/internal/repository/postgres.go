@@ -137,6 +137,12 @@ func (r *PostgresRepo) Create(ctx context.Context, p CreateParams) (Submission, 
 	return s, err
 }
 
+func (r *PostgresRepo) ApproveSubmission(ctx context.Context, submissionID string) error {
+	const q = `UPDATE salary_schema.submissions SET status = 'APPROVED' WHERE id = $1 AND status = 'PENDING'`
+	_, err := r.db.ExecContext(ctx, q, submissionID)
+	return err
+}
+
 func itoa(i int) string {
 	const digits = "0123456789"
 	if i < 10 {

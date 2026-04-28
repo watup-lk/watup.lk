@@ -5,3 +5,4 @@ metadata:
   namespace: app
 data:
   PORT: "8080"
+  KAFKA_BROKERS: "kafka:9092"

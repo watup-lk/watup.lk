@@ -56,6 +56,8 @@ func main() {
 	producer := kafka.NewProducer(cfg.KafkaBrokers)
 	defer producer.Close()
 
+	consumer := kafka.NewConsumer(cfg.KafkaBrokers, repo)
+
 	svc := service.New(repo, producer)
 
 	salaryH := handlers.NewSalaryHandler(svc)
@@ -77,6 +79,8 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	go consumer.Run(ctx)
 
 	go func() {
 		sigCh := make(chan os.Signal, 1)
