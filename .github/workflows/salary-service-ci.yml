@@ -3,11 +3,16 @@ name: Salary Service CI/CD
 on:
   push:
     branches:
-      - main
+      - "feature/**"
     paths:
       - "salary-service/**"
       - ".github/workflows/salary-service-ci.yml"
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
     branches:
       - main
     paths:
@@ -149,7 +154,11 @@ jobs:
     name: Build, Scan, and Push ACR Image
     runs-on: ubuntu-latest
     needs: [test, sonarqube, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'feature/')
     defaults:
       run:
         working-directory: salary-service
