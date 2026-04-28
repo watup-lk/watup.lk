@@ -133,7 +133,7 @@ export default function VotingPage() {
                   <div className={styles.cardTitleRow}>
                     <h2 className={styles.cardRole}>{item.role}</h2>
                     <span className={`${styles.badge} ${styles.badgePending}`}>
-                      PENDING
+                      {item.status}
                     </span>
                   </div>
                   <p className={styles.cardMeta}>
