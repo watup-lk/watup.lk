@@ -122,12 +122,15 @@ services:
     container_name: search-service
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?sslmode=disable
+      - KAFKA_BROKERS=kafka:9092
     ports:
       - "8083:8080"
     networks:
       - watup-internal
     depends_on:
       postgres-db:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     restart: on-failure
 
