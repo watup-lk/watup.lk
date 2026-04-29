@@ -122,7 +122,7 @@ app.get('/api/vote/queue', requireAuth, async (req: Request, res: Response) => {
 
     // 4. Filter if needs-vote
     if (filter === 'needs-vote') {
-        merged = merged.filter((m: any) => m.upvotes === APPROVAL_THRESHOLD - 1);
+        merged = merged.filter((m: any) => (m.upvotes - m.downvotes) === (APPROVAL_THRESHOLD - 1));
     }
 
     res.json(merged);

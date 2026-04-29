@@ -81,9 +81,10 @@ func main() {
 			return
 		}
 
-		voteType := "UP"
-		if strings.ToLower(body.Type) == "down" {
-			voteType = "DOWN"
+		voteType := strings.ToUpper(body.Type)
+		if voteType != "UP" && voteType != "DOWN" {
+			http.Error(w, "invalid vote type: must be UP or DOWN", http.StatusBadRequest)
+			return
 		}
 
 		ctx := r.Context()
