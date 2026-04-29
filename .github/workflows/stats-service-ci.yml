@@ -1,17 +1,12 @@
 name: Stats Service CI/CD
 
 on:
-  push:
-    branches:
-      - "feature/**"
-    paths:
-      - "stats-service/**"
-      - ".github/workflows/stats-service-ci.yml"
   pull_request:
     types:
       - opened
       - synchronize
       - reopened
+      - closed
     branches:
       - "main"
     paths:
@@ -30,6 +25,7 @@ jobs:
   test:
     name: Build and Test
     runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
     defaults:
       run:
         working-directory: stats-service
@@ -94,3 +90,75 @@ jobs:
           name: stats-service-npm-audit
           path: stats-service/npm-audit.json
           retention-days: 7
+
+
+  publish:
+    name: Build, Scan, and Push ACR Image
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'feature/')
+    defaults:
+      run:
+        working-directory: stats-service
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name "${{ secrets.ACR_NAME }}"
+
+      - name: Compute image tags
+        id: meta
+        run: |
+          REPOSITORY_URI="${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}"
+          echo "sha_tag=${REPOSITORY_URI}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "latest_tag=${REPOSITORY_URI}:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --tag "${{ steps.meta.outputs.sha_tag }}" \
+            --tag "${{ steps.meta.outputs.latest_tag }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            .
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.sha_tag }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        continue-on-error: true
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-stats-service
+
+      - name: Push Docker image to ACR
+        run: |
+          docker push "${{ steps.meta.outputs.sha_tag }}"
+          docker push "${{ steps.meta.outputs.latest_tag }}"
+
+      - name: Trigger k8s deployment
+        run: |
+          gh api repos/watup-lk/watup.lk-k8s-deployment-1/dispatches \
+            --method POST \
+            -f event_type=service-updated \
+            -f client_payload[service_name]="${{ env.IMAGE_NAME }}" \
+            -f client_payload[image_tag]="${{ github.sha }}"
+        env:
+          GH_TOKEN: ${{ secrets.K8S_DEPLOY_TOKEN }}
