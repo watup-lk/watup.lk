@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - "feature/**"
-      - main
+      - "main"
     paths:
       - "search-service/**"
       - ".github/workflows/search-service-ci.yml"
@@ -15,7 +15,7 @@ on:
       - reopened
       - closed
     branches:
-      - main
+      - "main"
     paths:
       - "search-service/**"
       - ".github/workflows/search-service-ci.yml"

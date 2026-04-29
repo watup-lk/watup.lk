@@ -14,7 +14,7 @@ on:
       - reopened
       - closed
     branches:
-      - main
+      - "main"
     paths:
       - "bff/**"
       - ".github/workflows/bff-ci.yml"

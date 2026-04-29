@@ -14,7 +14,7 @@ on:
       - reopened
       - closed
     branches:
-      - main
+      - "main"
     paths:
       - "watup-frontend/**"
       - ".github/workflows/frontend-ci.yml"

@@ -14,7 +14,7 @@ on:
       - reopened
       - closed
     branches:
-      - main
+      - "main"
     paths:
       - "stats-service/**"
       - ".github/workflows/stats-service-ci.yml"

@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - "feature/**"
-      - main
+      - "main"
     paths:
       - "identity-service/**"
       - ".github/workflows/identity-service-ci.yml"
@@ -15,7 +15,7 @@ on:
       - reopened
       - closed
     branches:
-      - main
+      - "main"
     paths:
       - "identity-service/**"
       - ".github/workflows/identity-service-ci.yml"

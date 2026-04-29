@@ -14,7 +14,7 @@ on:
       - reopened
       - closed
     branches:
-      - main
+      - "main"
     paths:
       - "infra-db/**"
       - ".github/workflows/infra-db-ci.yml"
