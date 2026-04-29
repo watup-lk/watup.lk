@@ -79,18 +79,18 @@ export default function SearchModal({ onClose }: SearchModalProps) {
             autoComplete="off"
           />
           <div className={styles.shortcuts}>
-            <kbd>⌘K</kbd>
+            <kbd>K</kbd>
             <kbd>ESC</kbd>
           </div>
         </div>
 
         {/* Active filters */}
-        <div className={styles.filters}>
+        {/* <div className={styles.filters}>
           {ACTIVE_FILTERS.map(f => (
             <span key={f} className={styles.filterChip}>{f}</span>
           ))}
           <button className={styles.addFilter}>+ Add filter</button>
-        </div>
+        </div> */}
 
         {/* Results */}
         {query && (
@@ -129,9 +129,9 @@ export default function SearchModal({ onClose }: SearchModalProps) {
         {/* Footer */}
         <div className={styles.footer}>
           <div className={styles.footerLeft}>
-            <span>↑↓ Navigate</span>
-            <span>↵ Select</span>
-            <span>⌘F Filter</span>
+            <span>Navigate</span>
+            <span>Select</span>
+            <span> Filter</span>
           </div>
           {results.length > 0 && (
             <button className={styles.viewAll}>View Full Results →</button>
