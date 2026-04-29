@@ -6,13 +6,11 @@ import (
 	"os"
 	"strconv"
 
-	v1 "github.com/watup-lk/vote-service/api/proto/v1"
 	"github.com/watup-lk/vote-service/internal/kafka"
 	"github.com/watup-lk/vote-service/internal/repository"
 )
 
 type VoteService struct {
-	v1.UnimplementedVoteServiceServer
 	repo *repository.PostgresRepo
 	kafka *kafka.Producer
 	approvalThreshold int
@@ -32,15 +30,15 @@ func NewVoteService(repo *repository.PostgresRepo, k *kafka.Producer) *VoteServi
 	}
 }
 
-func (s *VoteService) RecordVote(ctx context.Context, req *v1.RecordVoteRequest) (*v1.RecordVoteResponse, error) {
-	userID := ctx.Value("user_id").(string)
-	return s.RecordVoteHTTP(ctx, req.SubmissionId, userID, req.VoteType)
+type RecordVoteResponse struct {
+	Success          bool   `json:"success"`
+	Message          string `json:"message"`
+	ThresholdReached bool   `json:"threshold_reached"`
 }
 
-// RecordVoteHTTP is called by both the gRPC handler and the HTTP handler.
-func (s *VoteService) RecordVoteHTTP(ctx context.Context, submissionID, userID string, voteType v1.RecordVoteRequest_VoteType) (*v1.RecordVoteResponse, error) {
+func (s *VoteService) RecordVote(ctx context.Context, submissionID, userID string, voteType string) (*RecordVoteResponse, error) {
 	dbVoteType := "UP"
-	if voteType == v1.RecordVoteRequest_DOWNVOTE {
+	if voteType == "DOWN" {
 		dbVoteType = "DOWN"
 	}
 	currentUpvotes, err := s.repo.RecordVote(ctx, submissionID, userID, dbVoteType)
@@ -50,7 +48,7 @@ func (s *VoteService) RecordVoteHTTP(ctx context.Context, submissionID, userID s
 
 	thresholdReached := s.HandleThresholdReached(ctx, submissionID, currentUpvotes)
 
-	return &v1.RecordVoteResponse{
+	return &RecordVoteResponse{
 		Success: true,
 		Message: "Vote recorded successfully",
 		ThresholdReached: thresholdReached,
@@ -69,4 +67,8 @@ func (s *VoteService) HandleThresholdReached(ctx context.Context, submissionID s
 	}
 
 	return thresholdReached
+}
+
+func (s *VoteService) GetVoteCounts(ctx context.Context) ([]repository.VoteCount, error) {
+	return s.repo.GetVoteCounts(ctx)
 }

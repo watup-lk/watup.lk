@@ -30,6 +30,7 @@ type SearchFilter struct {
 	Country         string
 	ExperienceLevel string
 	Query           string
+	Status          string
 	Page            int
 	Limit           int
 }
@@ -59,7 +60,12 @@ func (r *PostgresRepo) Ping(ctx context.Context) error {
 }
 
 func (r *PostgresRepo) Search(ctx context.Context, f SearchFilter) (SearchResult, error) {
-	args := []any{"APPROVED"}
+	status := f.Status
+	if status == "" {
+		status = "APPROVED"
+	}
+
+	args := []any{status}
 	conds := []string{"s.status = $1"}
 	i := 2
 
@@ -119,7 +125,7 @@ func (r *PostgresRepo) Search(ctx context.Context, f SearchFilter) (SearchResult
 			COALESCE(v.down_count, 0) AS downvotes,
 			to_char(s.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
 		FROM salary_schema.submissions s
-		LEFT JOIN community_schema.submission_vote_counts v ON v.submission_id = s.id
+		LEFT JOIN community_schema.vote_counts v ON v.submission_id = s.id
 		WHERE ` + where + `
 		ORDER BY s.created_at DESC
 		LIMIT $` + limitPos + ` OFFSET $` + offsetPos
