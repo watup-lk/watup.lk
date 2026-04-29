@@ -1,12 +1,6 @@
 name: Frontend CI/CD
 
 on:
-  push:
-    branches:
-      - "feature/**"
-    paths:
-      - "watup-frontend/**"
-      - ".github/workflows/frontend-ci.yml"
   pull_request:
     types:
       - opened
@@ -14,15 +8,13 @@ on:
       - reopened
       - closed
     branches:
-      - main
+      - "main"
     paths:
       - "watup-frontend/**"
       - ".github/workflows/frontend-ci.yml"
 
 permissions:
   contents: read
-  security-events: write
-  actions: read
 
 env:
   NODE_VERSION: "20"
@@ -33,6 +25,7 @@ jobs:
   test:
     name: Build and Test
     runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
     defaults:
       run:
         working-directory: watup-frontend
@@ -98,12 +91,11 @@ jobs:
           path: watup-frontend/npm-audit.json
           retention-days: 7
 
+
   publish:
     name: Build, Scan, and Push ACR Image
     runs-on: ubuntu-latest
-    needs: [test, security]
     if: >-
-      github.event_name == 'pull_request' &&
       github.event.action == 'closed' &&
       github.event.pull_request.merged == true &&
       startsWith(github.event.pull_request.head.ref, 'feature/')
