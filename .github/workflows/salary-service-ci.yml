@@ -22,8 +22,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
-  actions: read
 
 env:
   GO_VERSION: "1.25"
@@ -115,13 +113,13 @@ jobs:
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           gosec -fmt sarif -out gosec-results.sarif ./... || true
 
-      - name: Upload gosec SARIF
-        uses: github/codeql-action/upload-sarif@v4
-        continue-on-error: true
-        if: always() && hashFiles('salary-service/gosec-results.sarif') != ''
+      - name: Upload gosec results
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
-          sarif_file: salary-service/gosec-results.sarif
-          category: gosec-salary-service
+          name: salary-service-gosec
+          path: salary-service/gosec-results.sarif
+          retention-days: 7
 
       - name: Run govulncheck
         run: |
