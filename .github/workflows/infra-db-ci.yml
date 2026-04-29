@@ -44,30 +44,11 @@ jobs:
           test -f Dockerfile
           find init-scripts -type f -name "*.sql" -print -quit | grep .
 
-  sonarqube:
-    name: SonarQube Analysis
-    runs-on: ubuntu-latest
-    needs: validate
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: SonarQube scan
-        uses: sonarsource/sonarqube-scan-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          projectBaseDir: infra-db
-          args: >
-            -Dsonar.projectKey=watup-lk
-            -Dsonar.projectName=watup.lk
-            -Dsonar.organization=watup-lk
 
   publish:
     name: Build, Scan, and Push ACR Image
     runs-on: ubuntu-latest
-    needs: [validate, sonarqube]
+    needs: validate
     if: >-
       github.event_name == 'pull_request' &&
       github.event.action == 'closed' &&

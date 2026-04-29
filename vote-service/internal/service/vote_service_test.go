@@ -13,6 +13,8 @@ type fakeVoteRepo struct {
 	upvotes              int
 	recordErr            error
 	approveErr           error
+	voteCounts           []repository.VoteCount
+	voteCountsErr        error
 	recordSubmissionID   string
 	recordUserID         string
 	recordVoteType       string
@@ -32,7 +34,7 @@ func (f *fakeVoteRepo) ApproveSubmission(_ context.Context, submissionID string)
 }
 
 func (f *fakeVoteRepo) GetVoteCounts(_ context.Context) ([]repository.VoteCount, error) {
-	return []repository.VoteCount{}, nil
+	return f.voteCounts, f.voteCountsErr
 }
 
 type fakeThresholdPublisher struct {
@@ -89,6 +91,20 @@ func TestRecordVoteUsesUserIDFromContext(t *testing.T) {
 	}
 	if repo.recordSubmissionID != "sub-1" || repo.recordUserID != "user-1" || repo.recordVoteType != "UP" {
 		t.Fatalf("unexpected recorded vote: %#v", repo)
+	}
+}
+
+func TestRecordVoteDefaultsBlankVoteTypeToUpvote(t *testing.T) {
+	repo := &fakeVoteRepo{upvotes: 1}
+	svc := &VoteService{repo: repo, approvalThreshold: 5}
+
+	_, err := svc.RecordVote(context.Background(), "sub-1", "user-1", "  ")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.recordVoteType != "UP" {
+		t.Fatalf("expected blank vote type to default to UP, got %q", repo.recordVoteType)
 	}
 }
 
@@ -185,6 +201,30 @@ func TestRecordVoteIgnoresPublishErrorAfterApproval(t *testing.T) {
 	}
 	if !resp.ThresholdReached || repo.approvedSubmissionID != "sub-1" {
 		t.Fatalf("expected approval despite publish failure, resp=%#v repo=%#v", resp, repo)
+	}
+}
+
+func TestGetVoteCountsReturnsRepositoryCounts(t *testing.T) {
+	repo := &fakeVoteRepo{voteCounts: []repository.VoteCount{
+		{SubmissionID: "sub-1", UpCount: 4, DownCount: 1},
+	}}
+	svc := &VoteService{repo: repo}
+
+	counts, err := svc.GetVoteCounts(context.Background())
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(counts) != 1 || counts[0].SubmissionID != "sub-1" {
+		t.Fatalf("unexpected counts: %#v", counts)
+	}
+}
+
+func TestGetVoteCountsReturnsRepositoryError(t *testing.T) {
+	svc := &VoteService{repo: &fakeVoteRepo{voteCountsErr: errors.New("counts failed")}}
+
+	if _, err := svc.GetVoteCounts(context.Background()); err == nil {
+		t.Fatal("expected counts error")
 	}
 }
 

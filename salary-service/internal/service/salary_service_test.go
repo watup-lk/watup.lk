@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -33,6 +34,17 @@ func (f *fakeKafka) PublishSubmissionCreated(_ context.Context, _ string) {}
 
 func newTestService(repo salaryRepo) *SalaryService {
 	return &SalaryService{repo: repo, kafka: &fakeKafka{}}
+}
+
+func TestNewStoresDependencies(t *testing.T) {
+	svc := New(nil, nil)
+
+	if svc == nil {
+		t.Fatal("expected service")
+	}
+	if !reflect.ValueOf(svc.repo).IsNil() || !reflect.ValueOf(svc.kafka).IsNil() {
+		t.Fatalf("expected nil dependencies to be stored as nil, got %#v", svc)
+	}
 }
 
 func TestList_OK(t *testing.T) {
@@ -197,6 +209,19 @@ func TestList_NormalizesLowercaseWorkTypeFilter(t *testing.T) {
 	}
 }
 
+func TestList_NormalizesOnSiteWorkTypeFilter(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := newTestService(repo)
+
+	_, err := svc.List(context.Background(), repository.FindFilter{WorkType: " on site "})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.findFilter.WorkType != "Onsite" {
+		t.Fatalf("expected Onsite work type filter, got %q", repo.findFilter.WorkType)
+	}
+}
+
 func TestCreate_Error(t *testing.T) {
 	repo := &fakeRepo{err: errors.New("insert failed")}
 	svc := newTestService(repo)
@@ -259,5 +284,22 @@ func TestTrimPtr(t *testing.T) {
 	got := trimPtr(&s2)
 	if got == nil || *got != "hello" {
 		t.Errorf("expected 'hello', got %v", got)
+	}
+}
+
+func TestNormalizeWorkTypeKeepsUnknownTrimmedValue(t *testing.T) {
+	if got := normalizeWorkType(" contract "); got != "contract" {
+		t.Fatalf("expected trimmed custom work type, got %q", got)
+	}
+}
+
+func TestNormalizeWorkTypePtrReturnsNilForNilAndBlank(t *testing.T) {
+	if normalizeWorkTypePtr(nil) != nil {
+		t.Fatal("expected nil pointer to stay nil")
+	}
+
+	blank := "   "
+	if normalizeWorkTypePtr(&blank) != nil {
+		t.Fatal("expected blank pointer to normalize to nil")
 	}
 }

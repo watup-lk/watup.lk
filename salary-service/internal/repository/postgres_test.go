@@ -93,6 +93,33 @@ func TestFindApprovedReturnsQueryError(t *testing.T) {
 	}
 }
 
+func TestFindApprovedReturnsScanError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewPostgresRepo(db)
+	rows := sqlmock.NewRows([]string{
+		"id", "role", "company", "country", "city", "salary_amount", "currency",
+		"experience_years", "experience_level", "work_type", "is_anonymized", "status", "created_at",
+	}).AddRow(
+		"sub-1", "Backend Engineer", nil, "LK", nil, "bad-salary", "LKR",
+		nil, nil, nil, false, "APPROVED", time.Now(),
+	)
+	mock.ExpectQuery(regexp.QuoteMeta("FROM submissions")).
+		WithArgs("APPROVED").
+		WillReturnRows(rows)
+
+	if _, err := repo.FindApproved(context.Background(), FindFilter{}); err == nil {
+		t.Fatal("expected scan error")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestCreateInsertsSubmissionAndScansReturnedRow(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -148,6 +175,80 @@ func TestCreateInsertsSubmissionAndScansReturnedRow(t *testing.T) {
 	}
 	if got.ID != "sub-1" || got.Status != "PENDING" || !got.IsAnonymized {
 		t.Fatalf("unexpected created submission: %#v", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestPingUsesDatabasePing(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewPostgresRepo(db)
+	mock.ExpectPing()
+
+	if err := repo.Ping(context.Background()); err != nil {
+		t.Fatalf("unexpected ping error: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestCreateReturnsScanError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewPostgresRepo(db)
+	mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO submissions")).
+		WithArgs(
+			"Backend Engineer",
+			nil,
+			"LK",
+			nil,
+			450000.0,
+			"LKR",
+			nil,
+			nil,
+			nil,
+			false,
+		).
+		WillReturnError(errors.New("insert failed"))
+
+	if _, err := repo.Create(context.Background(), CreateParams{
+		Role:         "Backend Engineer",
+		Country:      "LK",
+		SalaryAmount: 450000,
+		Currency:     "LKR",
+	}); err == nil {
+		t.Fatal("expected create error")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestApproveSubmissionUpdatesPendingSubmission(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewPostgresRepo(db)
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE salary_schema.submissions SET status = 'APPROVED' WHERE id = $1 AND status = 'PENDING'")).
+		WithArgs("sub-1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	if err := repo.ApproveSubmission(context.Background(), "sub-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)

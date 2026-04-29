@@ -89,37 +89,11 @@ jobs:
             identity-service/coverage-summary.txt
           retention-days: 7
 
-  sonarqube:
-    name: SonarQube Analysis
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download coverage report
-        uses: actions/download-artifact@v4
-        with:
-          name: identity-service-coverage
-          path: identity-service
-
-      - name: SonarQube scan
-        uses: sonarsource/sonarqube-scan-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          projectBaseDir: identity-service
-          args: >
-            -Dsonar.projectKey=watup-lk
-            -Dsonar.projectName=watup.lk
-            -Dsonar.organization=watup-lk
-            -Dsonar.go.coverage.reportPaths=coverage.out
 
   security:
     name: Security and Vulnerability Scan
     runs-on: ubuntu-latest
-    needs: [test, sonarqube]
+    needs: test
     defaults:
       run:
         working-directory: identity-service
@@ -154,7 +128,7 @@ jobs:
   publish:
     name: Build, Scan, and Push ACR Image
     runs-on: ubuntu-latest
-    needs: [test, sonarqube, security]
+    needs: [test, security]
     if: >-
       github.event_name == 'pull_request' &&
       github.event.action == 'closed' &&

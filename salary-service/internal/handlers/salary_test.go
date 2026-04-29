@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -30,6 +31,14 @@ func (f *fakeSalaryService) List(_ context.Context, filter repository.FindFilter
 func (f *fakeSalaryService) Create(_ context.Context, req service.CreateRequest) (service.SubmissionResponse, error) {
 	f.createReq = req
 	return f.createResult, f.createErr
+}
+
+func TestNewSalaryHandlerStoresService(t *testing.T) {
+	h := NewSalaryHandler(nil)
+
+	if h == nil || !reflect.ValueOf(h.svc).IsNil() {
+		t.Fatalf("expected handler with nil service, got %#v", h)
+	}
 }
 
 func TestList_OK(t *testing.T) {
