@@ -102,19 +102,16 @@ else
     BODY=$(echo "$RESPONSE" | head -1)
     assert_status "Downvote (user 2)" 200 "$HTTP_CODE"
 
-    blue "\n=== 1c. POST /vote/$SUBMISSION_ID — duplicate vote (user 1 again) ==="
+    blue "\n=== 1c. POST /vote/$SUBMISSION_ID — idempotent duplicate vote (user 1 again) ==="
 
-    STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/vote/$SUBMISSION_ID" \
+    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/vote/$SUBMISSION_ID" \
       -H "Content-Type: application/json" \
       -d "{\"type\":\"up\",\"user_id\":\"$USER1\"}")
-    # Duplicate vote should be rejected (409 or 500 from DB unique constraint)
-    if [ "$STATUS" -ne 200 ]; then
-      green "  ✓ Duplicate vote rejected (HTTP $STATUS)"
-      PASS=$((PASS + 1))
-    else
-      red "  ✗ Duplicate vote was accepted — should be rejected"
-      FAIL=$((FAIL + 1))
-    fi
+    HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+    BODY=$(echo "$RESPONSE" | head -1)
+    assert_status "Duplicate same vote is idempotent" 200 "$HTTP_CODE"
+    SUCCESS=$(echo "$BODY" | jq -r '.success // empty' 2>/dev/null)
+    assert_eq "success=true for idempotent duplicate" "true" "$SUCCESS"
   fi
 
   # ── 2. Invalid Body ───────────────────────────────────────────────────────

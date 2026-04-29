@@ -11,11 +11,8 @@ func TestLoadUsesDefaultsWhenEnvironmentKeysAreMissing(t *testing.T) {
 
 	cfg := Load()
 
-	if cfg.Port != "50051" {
-		t.Fatalf("expected default grpc port 50051, got %q", cfg.Port)
-	}
-	if cfg.HTTPPort != "8081" {
-		t.Fatalf("expected default http port 8081, got %q", cfg.HTTPPort)
+	if cfg.Port != "8080" {
+		t.Fatalf("expected default http port 8080, got %q", cfg.Port)
 	}
 	if cfg.DatabaseURL != "" {
 		t.Fatalf("expected empty database url, got %q", cfg.DatabaseURL)
@@ -59,10 +56,7 @@ func TestLoadUsesConfiguredEnvironmentValues(t *testing.T) {
 	cfg := Load()
 
 	if cfg.Port != "60061" {
-		t.Fatalf("expected configured grpc port, got %q", cfg.Port)
-	}
-	if cfg.HTTPPort != "9090" {
-		t.Fatalf("expected configured http port, got %q", cfg.HTTPPort)
+		t.Fatalf("expected configured http port, got %q", cfg.Port)
 	}
 	if cfg.DatabaseURL != "postgres://user:pass@localhost:5432/vote?sslmode=disable" {
 		t.Fatalf("expected configured database url, got %q", cfg.DatabaseURL)

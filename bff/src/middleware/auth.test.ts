@@ -75,7 +75,7 @@ describe('requireAuth', () => {
     await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(502);
-    expect(res.json).toHaveBeenCalledWith({ message: 'Auth service unavailable' });
+    expect(res.json).toHaveBeenCalledWith({ message: 'identity service unavailable' });
     expect(next).not.toHaveBeenCalled();
   });
 });

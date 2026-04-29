@@ -18,8 +18,11 @@ func TestRecordVoteUpsertsVoteCountsUpvotesAndCommits(t *testing.T) {
 
 	repo := NewPostgresRepo(db)
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO votes")).
+	mock.ExpectQuery(regexp.QuoteMeta("WITH old_vote AS")).
 		WithArgs("sub-1", "user-1", "UP").
+		WillReturnRows(sqlmock.NewRows([]string{"old_vote_type"}).AddRow(""))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO vote_counts")).
+		WithArgs("sub-1", 1, 0).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*) FROM votes WHERE submission_id = $1 AND vote_type = 'UP'")).
 		WithArgs("sub-1").
@@ -66,7 +69,7 @@ func TestRecordVoteReturnsExecErrorAndRollsBack(t *testing.T) {
 
 	repo := NewPostgresRepo(db)
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO votes")).
+	mock.ExpectQuery(regexp.QuoteMeta("WITH old_vote AS")).
 		WithArgs("sub-1", "user-1", "UP").
 		WillReturnError(errors.New("insert failed"))
 	mock.ExpectRollback()
@@ -88,8 +91,11 @@ func TestRecordVoteReturnsCountErrorAndRollsBack(t *testing.T) {
 
 	repo := NewPostgresRepo(db)
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO votes")).
+	mock.ExpectQuery(regexp.QuoteMeta("WITH old_vote AS")).
 		WithArgs("sub-1", "user-1", "UP").
+		WillReturnRows(sqlmock.NewRows([]string{"old_vote_type"}).AddRow(""))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO vote_counts")).
+		WithArgs("sub-1", 1, 0).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*) FROM votes WHERE submission_id = $1 AND vote_type = 'UP'")).
 		WithArgs("sub-1").
@@ -113,8 +119,11 @@ func TestRecordVoteReturnsCommitError(t *testing.T) {
 
 	repo := NewPostgresRepo(db)
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO votes")).
+	mock.ExpectQuery(regexp.QuoteMeta("WITH old_vote AS")).
 		WithArgs("sub-1", "user-1", "UP").
+		WillReturnRows(sqlmock.NewRows([]string{"old_vote_type"}).AddRow(""))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO vote_counts")).
+		WithArgs("sub-1", 1, 0).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*) FROM votes WHERE submission_id = $1 AND vote_type = 'UP'")).
 		WithArgs("sub-1").

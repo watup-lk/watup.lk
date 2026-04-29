@@ -34,7 +34,7 @@ services:
       - SEARCH_SERVICE_URL=http://search-service:8080
       - SALARY_SERVICE_URL=http://salary-service:8080
       - STATS_SERVICE_URL=http://stats-service:8080
-      - VOTE_HTTP_SERVICE_URL=http://vote-service:8081
+      - VOTE_HTTP_SERVICE_URL=http://vote-service:8080
     networks:
       - watup-internal
     depends_on:
@@ -85,7 +85,7 @@ services:
     ports:
       - "8081:8080"    # HTTP API
       - "50052:50052"  # gRPC internal
-      - "9090:9090"    # Prometheus metrics
+      - "9091:9090"    # Prometheus metrics
     networks:
       - watup-internal
     depends_on:
@@ -122,12 +122,15 @@ services:
     container_name: search-service
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?sslmode=disable
+      - KAFKA_BROKERS=kafka:9092
     ports:
       - "8083:8080"
     networks:
       - watup-internal
     depends_on:
       postgres-db:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     restart: on-failure
 
@@ -154,13 +157,12 @@ services:
     container_name: vote-service
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?search_path=community_schema&sslmode=disable
-      - PORT=50051
-      - HTTP_PORT=8081
+      - PORT=8080
       - APPROVAL_THRESHOLD=5
       - KAFKA_BROKERS=kafka:9092
     ports:
-      - "8085:50051"
-      - "8087:8081"
+      - "8085:8080"
+      - "40000:40000"
     networks:
       - watup-internal
     depends_on:

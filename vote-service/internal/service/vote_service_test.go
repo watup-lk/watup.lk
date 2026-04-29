@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	v1 "github.com/watup-lk/vote-service/api/proto/v1"
+	"github.com/watup-lk/vote-service/internal/repository"
 )
 
 type fakeVoteRepo struct {
@@ -29,6 +29,10 @@ func (f *fakeVoteRepo) RecordVote(_ context.Context, submissionID, userID, voteT
 func (f *fakeVoteRepo) ApproveSubmission(_ context.Context, submissionID string) error {
 	f.approvedSubmissionID = submissionID
 	return f.approveErr
+}
+
+func (f *fakeVoteRepo) GetVoteCounts(_ context.Context) ([]repository.VoteCount, error) {
+	return []repository.VoteCount{}, nil
 }
 
 type fakeThresholdPublisher struct {
@@ -64,7 +68,7 @@ func TestNewVoteServiceDefaultsThreshold(t *testing.T) {
 func TestRecordVoteRequiresAuthenticatedUserID(t *testing.T) {
 	svc := &VoteService{repo: &fakeVoteRepo{}, approvalThreshold: 5}
 
-	_, err := svc.RecordVote(context.Background(), &v1.RecordVoteRequest{SubmissionId: "sub-1"})
+	_, err := svc.RecordVote(context.Background(), "sub-1", "", "UP")
 
 	if err == nil {
 		t.Fatal("expected missing user id error")
@@ -74,12 +78,8 @@ func TestRecordVoteRequiresAuthenticatedUserID(t *testing.T) {
 func TestRecordVoteUsesUserIDFromContext(t *testing.T) {
 	repo := &fakeVoteRepo{upvotes: 1}
 	svc := &VoteService{repo: repo, approvalThreshold: 5}
-	ctx := context.WithValue(context.Background(), "user_id", "user-1")
 
-	resp, err := svc.RecordVote(ctx, &v1.RecordVoteRequest{
-		SubmissionId: "sub-1",
-		VoteType:     v1.RecordVoteRequest_UPVOTE,
-	})
+	resp, err := svc.RecordVote(context.Background(), "sub-1", "user-1", "UP")
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -92,16 +92,16 @@ func TestRecordVoteUsesUserIDFromContext(t *testing.T) {
 	}
 }
 
-func TestRecordVoteHTTPRecordsDownvoteWithoutApproval(t *testing.T) {
+func TestRecordVoteRecordsDownvoteWithoutApproval(t *testing.T) {
 	repo := &fakeVoteRepo{upvotes: 4}
 	publisher := &fakeThresholdPublisher{}
 	svc := &VoteService{repo: repo, kafka: publisher, approvalThreshold: 5}
 
-	resp, err := svc.RecordVoteHTTP(
+	resp, err := svc.RecordVote(
 		context.Background(),
 		"sub-1",
 		"user-1",
-		v1.RecordVoteRequest_DOWNVOTE,
+		"DOWN",
 	)
 
 	if err != nil {
@@ -121,16 +121,16 @@ func TestRecordVoteHTTPRecordsDownvoteWithoutApproval(t *testing.T) {
 	}
 }
 
-func TestRecordVoteHTTPApprovesAndPublishesWhenThresholdReached(t *testing.T) {
+func TestRecordVoteApprovesAndPublishesWhenThresholdReached(t *testing.T) {
 	repo := &fakeVoteRepo{upvotes: 5}
 	publisher := &fakeThresholdPublisher{}
 	svc := &VoteService{repo: repo, kafka: publisher, approvalThreshold: 5}
 
-	resp, err := svc.RecordVoteHTTP(
+	resp, err := svc.RecordVote(
 		context.Background(),
 		"sub-1",
 		"user-1",
-		v1.RecordVoteRequest_UPVOTE,
+		"UP",
 	)
 
 	if err != nil {
@@ -147,30 +147,30 @@ func TestRecordVoteHTTPApprovesAndPublishesWhenThresholdReached(t *testing.T) {
 	}
 }
 
-func TestRecordVoteHTTPReturnsRecordError(t *testing.T) {
+func TestRecordVoteReturnsRecordError(t *testing.T) {
 	svc := &VoteService{
 		repo:              &fakeVoteRepo{recordErr: errors.New("record failed")},
 		approvalThreshold: 5,
 	}
 
-	if _, err := svc.RecordVoteHTTP(context.Background(), "sub-1", "user-1", v1.RecordVoteRequest_UPVOTE); err == nil {
+	if _, err := svc.RecordVote(context.Background(), "sub-1", "user-1", "UP"); err == nil {
 		t.Fatal("expected record error")
 	}
 }
 
-func TestRecordVoteHTTPReturnsApprovalError(t *testing.T) {
+func TestRecordVoteReturnsApprovalError(t *testing.T) {
 	svc := &VoteService{
 		repo:              &fakeVoteRepo{upvotes: 5, approveErr: errors.New("approval failed")},
 		kafka:             &fakeThresholdPublisher{},
 		approvalThreshold: 5,
 	}
 
-	if _, err := svc.RecordVoteHTTP(context.Background(), "sub-1", "user-1", v1.RecordVoteRequest_UPVOTE); err == nil {
+	if _, err := svc.RecordVote(context.Background(), "sub-1", "user-1", "UP"); err == nil {
 		t.Fatal("expected approval error")
 	}
 }
 
-func TestRecordVoteHTTPIgnoresPublishErrorAfterApproval(t *testing.T) {
+func TestRecordVoteIgnoresPublishErrorAfterApproval(t *testing.T) {
 	repo := &fakeVoteRepo{upvotes: 5}
 	svc := &VoteService{
 		repo:              repo,
@@ -178,7 +178,7 @@ func TestRecordVoteHTTPIgnoresPublishErrorAfterApproval(t *testing.T) {
 		approvalThreshold: 5,
 	}
 
-	resp, err := svc.RecordVoteHTTP(context.Background(), "sub-1", "user-1", v1.RecordVoteRequest_UPVOTE)
+	resp, err := svc.RecordVote(context.Background(), "sub-1", "user-1", "UP")
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

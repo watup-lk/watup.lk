@@ -46,7 +46,7 @@ describe('bff app', () => {
     expect(res.body).toEqual({ success: true, threshold_reached: true });
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      'http://vote-service:8081/vote/salary-1',
+      'http://vote-service:8080/vote/salary-1',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ type: 'UP', user_id: 'user-123' }),
@@ -86,17 +86,22 @@ describe('bff app', () => {
     const pending = [{ id: 'salary-1', status: 'PENDING' }];
     fetchMock
       .mockResolvedValueOnce(authResponse())
-      .mockResolvedValueOnce(jsonResponse({ results: pending }));
+      .mockResolvedValueOnce(jsonResponse({ results: pending }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ submission_id: 'salary-1', up_count: 3, down_count: 1 }] }));
 
     const res = await request(createApp())
       .get('/api/vote/queue')
       .set('Authorization', 'Bearer token');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual(pending);
+    expect(res.body).toEqual([{ id: 'salary-1', status: 'PENDING', upvotes: 3, downvotes: 1 }]);
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       'http://search-service:8080/search?status=PENDING&limit=50',
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://vote-service:8080/vote/counts',
     );
   });
 
@@ -123,7 +128,21 @@ describe('bff app', () => {
       .set('Authorization', 'Bearer token');
 
     expect(res.status).toBe(503);
-    expect(res.body).toEqual({ message: 'upstream error' });
+    expect(res.body).toEqual({ message: 'search service error' });
+  });
+
+  it('returns bad gateway when vote counts are unavailable for vote queue', async () => {
+    fetchMock
+      .mockResolvedValueOnce(authResponse())
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      .mockRejectedValueOnce(new Error('vote unavailable'));
+
+    const res = await request(createApp())
+      .get('/api/vote/queue')
+      .set('Authorization', 'Bearer token');
+
+    expect(res.status).toBe(502);
+    expect(res.body).toEqual({ message: 'vote service unavailable' });
   });
 
   it('builds the dashboard from pending and approved search results', async () => {
@@ -206,7 +225,7 @@ describe('bff app', () => {
       .set('Authorization', 'Bearer token');
 
     expect(res.status).toBe(502);
-    expect(res.body).toEqual({ message: 'upstream error' });
+    expect(res.body).toEqual({ message: 'search service error' });
   });
 
   it('returns bad gateway when dashboard search throws', async () => {

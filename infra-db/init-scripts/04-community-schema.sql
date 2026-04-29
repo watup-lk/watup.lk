@@ -11,8 +11,28 @@ CREATE TABLE IF NOT EXISTS votes (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_submission_user ON votes (submission_id, user_id);
 
 -- High-performance counter table tailored for asynchronous Kafka updates
-CREATE TABLE IF NOT EXISTS submission_vote_counts (
+DO $$
+BEGIN
+    IF to_regclass('community_schema.vote_counts') IS NULL
+       AND to_regclass('community_schema.submission_vote_counts') IS NOT NULL THEN
+        ALTER TABLE community_schema.submission_vote_counts RENAME TO vote_counts;
+    END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS vote_counts (
     submission_id UUID PRIMARY KEY,
     up_count INTEGER NOT NULL DEFAULT 0,
     down_count INTEGER NOT NULL DEFAULT 0
 );
+
+DO $$
+BEGIN
+    IF to_regclass('community_schema.submission_vote_counts') IS NOT NULL THEN
+        INSERT INTO vote_counts (submission_id, up_count, down_count)
+        SELECT submission_id, up_count, down_count
+        FROM community_schema.submission_vote_counts
+        ON CONFLICT (submission_id) DO UPDATE
+        SET up_count = EXCLUDED.up_count,
+            down_count = EXCLUDED.down_count;
+    END IF;
+END $$;

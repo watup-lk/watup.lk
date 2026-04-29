@@ -63,7 +63,7 @@ describe('frontend API client', () => {
     })).resolves.toEqual(salary);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/salary',
+      'http://localhost:8080/api/salary',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
@@ -75,7 +75,7 @@ describe('frontend API client', () => {
           work_type: 'Remote',
           monthly_salary_lkr: 500000,
           years_of_experience: 6,
-          anonymized: true,
+          anonymize: true,
         }),
       }),
     );
@@ -89,7 +89,7 @@ describe('frontend API client', () => {
       .resolves.toEqual(results);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/search?country=LK&role=Backend+Engineer',
+      'http://localhost:8080/api/search?country=LK&role=Backend+Engineer',
       expect.objectContaining({
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -117,7 +117,7 @@ describe('frontend API client', () => {
     await expect(getStats({ country: 'LK', role: 'Backend Engineer' })).resolves.toEqual(stats);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/stats?country=LK&role=Backend+Engineer',
+      'http://localhost:8080/api/stats?country=LK&role=Backend+Engineer',
       expect.objectContaining({ headers: { 'Content-Type': 'application/json' } }),
     );
   });
@@ -135,7 +135,7 @@ describe('frontend API client', () => {
       token: 'access-token',
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/auth/login',
+      'http://localhost:8080/api/auth/login',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ email: 'dev@watup.lk', password: 'secret' }),
@@ -160,7 +160,7 @@ describe('frontend API client', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      'http://localhost:4000/api/auth/signup',
+      'http://localhost:8080/api/auth/signup',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ name: 'dev', email: 'dev@watup.lk', password: 'secret' }),
@@ -168,7 +168,7 @@ describe('frontend API client', () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      'http://localhost:4000/api/auth/login',
+      'http://localhost:8080/api/auth/login',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ email: 'dev@watup.lk', password: 'secret' }),
@@ -182,7 +182,7 @@ describe('frontend API client', () => {
     await vote('salary-1', 'UP', 'jwt-token');
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/vote/salary-1',
+      'http://localhost:8080/api/vote/salary-1',
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -200,7 +200,7 @@ describe('frontend API client', () => {
     await expect(getVotingQueue('needs-vote', 'jwt-token')).resolves.toEqual([salary]);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/vote/queue?filter=needs-vote',
+      'http://localhost:8080/api/vote/queue?filter=needs-vote',
       expect.objectContaining({
         headers: {
           'Content-Type': 'application/json',
@@ -216,7 +216,7 @@ describe('frontend API client', () => {
     await reportSalary('salary-1', 'Duplicate', 'jwt-token');
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/report/salary-1',
+      'http://localhost:8080/api/report/salary-1',
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -246,7 +246,7 @@ describe('frontend API client', () => {
     await expect(getDashboard('jwt-token')).resolves.toEqual(dashboard);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/dashboard',
+      'http://localhost:8080/api/dashboard',
       expect.objectContaining({
         headers: {
           'Content-Type': 'application/json',
@@ -275,7 +275,7 @@ describe('frontend API client', () => {
       .resolves.toEqual(analytics);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/analytics?country=LK&role=Backend+Engineer&year=2026',
+      'http://localhost:8080/api/analytics?country=LK&role=Backend+Engineer&year=2026',
       expect.objectContaining({ headers: { 'Content-Type': 'application/json' } }),
     );
   });
@@ -298,7 +298,7 @@ describe('frontend API client', () => {
     await expect(getAdminStats('jwt-token')).resolves.toEqual(admin);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/admin/stats',
+      'http://localhost:8080/api/admin/stats',
       expect.objectContaining({
         headers: {
           'Content-Type': 'application/json',
@@ -314,7 +314,7 @@ describe('frontend API client', () => {
     await moderateEntry('salary-1', 'approve', 'jwt-token');
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/admin/moderate/salary-1',
+      'http://localhost:8080/api/admin/moderate/salary-1',
       expect.objectContaining({
         method: 'POST',
         headers: {

@@ -154,7 +154,7 @@ HTTP_CODE=$(echo "$RESPONSE" | tail -1)
 BODY=$(echo "$RESPONSE" | head -1)
 
 assert_status "List approved submissions" 200 "$HTTP_CODE"
-IS_ARRAY=$(echo "$BODY" | jq -e '. | type == "array"' 2>/dev/null && echo "true" || echo "false")
+IS_ARRAY=$(echo "$BODY" | jq -e '. | type == "array"' >/dev/null 2>&1 && echo "true" || echo "false")
 assert_eq "Response is a JSON array" "true" "$IS_ARRAY"
 
 # ── 2b. List with filters ─────────────────────────────────────────────────────

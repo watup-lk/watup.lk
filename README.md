@@ -129,7 +129,7 @@ Single PostgreSQL 16 instance with three logical schemas:
 |--------|--------------|--------|
 | `identity_schema` | identity-service | `users`, `refresh_tokens`, `audit_logs`, `password_reset_tokens` |
 | `salary_schema` | search-service, stats-service | `submissions` (PENDING → APPROVED → REJECTED) |
-| `community_schema` | vote-service | `votes`, `submission_vote_counts` |
+| `community_schema` | vote-service | `votes`, `vote_counts` |
 
 Connect with any PostgreSQL client using host `localhost`, port `5432`, user `watup_user`, password `watup_dev_password`, database `watup_db`.
 

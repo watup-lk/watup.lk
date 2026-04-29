@@ -27,19 +27,19 @@ func New(repo *repository.PostgresRepo, k *kafka.Producer) *SalaryService {
 }
 
 type SubmissionResponse struct {
-	ID              string  `json:"id"`
-	Role            string  `json:"role"`
-	Company         *string `json:"company"`
-	Country         string  `json:"country"`
-	City            *string `json:"city"`
-	MonthlySalaryLKR float64 `json:"monthly_salary_lkr"`
-	Currency        string  `json:"currency"`
-	YearsOfExperience *int  `json:"years_of_experience"`
-	ExperienceLevel *string `json:"experience_level"`
-	WorkType        *string `json:"work_type"`
-	Anonymized      bool    `json:"anonymized"`
-	Status          string  `json:"status"`
-	CreatedAt       string  `json:"created_at"`
+	ID                string  `json:"id"`
+	Role              string  `json:"role"`
+	Company           *string `json:"company"`
+	Country           string  `json:"country"`
+	City              *string `json:"city"`
+	MonthlySalaryLKR  float64 `json:"monthly_salary_lkr"`
+	Currency          string  `json:"currency"`
+	YearsOfExperience *int    `json:"years_of_experience"`
+	ExperienceLevel   *string `json:"experience_level"`
+	WorkType          *string `json:"work_type"`
+	Anonymized        bool    `json:"anonymized"`
+	Status            string  `json:"status"`
+	CreatedAt         string  `json:"created_at"`
 }
 
 type CreateRequest struct {
@@ -56,6 +56,7 @@ type CreateRequest struct {
 }
 
 func (s *SalaryService) List(ctx context.Context, f repository.FindFilter) ([]SubmissionResponse, error) {
+	f.WorkType = normalizeWorkType(f.WorkType)
 	subs, err := s.repo.FindApproved(ctx, f)
 	if err != nil {
 		return nil, err
@@ -86,7 +87,7 @@ func (s *SalaryService) Create(ctx context.Context, req CreateRequest) (Submissi
 		Currency:        currency,
 		ExperienceYears: req.YearsOfExperience,
 		ExperienceLevel: req.ExperienceLevel,
-		WorkType:        req.WorkType,
+		WorkType:        normalizeWorkTypePtr(req.WorkType),
 		IsAnonymized:    req.Anonymize,
 	}
 
@@ -95,7 +96,7 @@ func (s *SalaryService) Create(ctx context.Context, req CreateRequest) (Submissi
 		return SubmissionResponse{}, err
 	}
 
-	go s.kafka.PublishSubmissionCreated(ctx, saved.ID)
+	go s.kafka.PublishSubmissionCreated(context.Background(), saved.ID)
 
 	return toResponse(saved), nil
 }
@@ -131,4 +132,28 @@ func trimPtr(s *string) *string {
 		return nil
 	}
 	return &v
+}
+
+func normalizeWorkType(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "remote":
+		return "Remote"
+	case "hybrid":
+		return "Hybrid"
+	case "onsite", "on-site", "on site":
+		return "Onsite"
+	default:
+		return strings.TrimSpace(value)
+	}
+}
+
+func normalizeWorkTypePtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	normalized := normalizeWorkType(*value)
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
 }

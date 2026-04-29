@@ -4,14 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log"
-	"net"
 	"net/http"
 	"strings"
 
 	_ "github.com/lib/pq"
-	"google.golang.org/grpc"
 
-	v1 "github.com/watup-lk/vote-service/api/proto/v1"
 	"github.com/watup-lk/vote-service/internal/config"
 	"github.com/watup-lk/vote-service/internal/kafka"
 	"github.com/watup-lk/vote-service/internal/repository"
@@ -40,66 +37,70 @@ func main() {
 
 	voteSvc := service.NewVoteService(repo, producer)
 
-	// 3. HTTP server for BFF integration (POST /vote/:id)
-	go func() {
-		mux := http.NewServeMux()
-		mux.HandleFunc("/vote/", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodPost {
-				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-				return
-			}
+	// 3. HTTP server for BFF integration
+	mux := http.NewServeMux()
 
-			// Extract submission ID from path: /vote/{id}
-			submissionID := strings.TrimPrefix(r.URL.Path, "/vote/")
-			if submissionID == "" {
-				http.Error(w, "missing submission id", http.StatusBadRequest)
-				return
-			}
-
-			var body struct {
-				Type   string `json:"type"`
-				UserID string `json:"user_id"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				http.Error(w, "invalid body", http.StatusBadRequest)
-				return
-			}
-
-			voteType := v1.RecordVoteRequest_UPVOTE
-			if strings.ToLower(body.Type) == "down" {
-				voteType = v1.RecordVoteRequest_DOWNVOTE
-			}
-
-			ctx := r.Context()
-			resp, err := voteSvc.RecordVoteHTTP(ctx, submissionID, body.UserID, voteType)
-			if err != nil {
-				log.Printf("RecordVote error: %v", err)
-				http.Error(w, "internal error", http.StatusInternalServerError)
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(resp)
-		})
-
-		httpPort := cfg.HTTPPort
-		log.Printf("Vote HTTP server running on :%s", httpPort)
-		if err := http.ListenAndServe(":"+httpPort, mux); err != nil {
-			log.Fatalf("HTTP server failed: %v", err)
+	mux.HandleFunc("/vote/counts", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
 		}
-	}()
 
-	// 4. gRPC Server
-	lis, err := net.Listen("tcp", ":"+cfg.Port)
-	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
-	}
+		counts, err := voteSvc.GetVoteCounts(r.Context())
+		if err != nil {
+			log.Printf("GetVoteCounts error: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 
-	s := grpc.NewServer()
-	v1.RegisterVoteServiceServer(s, voteSvc)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"results": counts,
+		})
+	})
 
-	log.Printf("Vote gRPC service running on port %s", cfg.Port)
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+	mux.HandleFunc("/vote/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Extract submission ID from path: /vote/{id}
+		submissionID := strings.TrimPrefix(r.URL.Path, "/vote/")
+		if submissionID == "" {
+			http.Error(w, "missing submission id", http.StatusBadRequest)
+			return
+		}
+
+		var body struct {
+			Type   string `json:"type"`
+			UserID string `json:"user_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid body", http.StatusBadRequest)
+			return
+		}
+
+		voteType := strings.ToUpper(body.Type)
+		if voteType != "UP" && voteType != "DOWN" {
+			http.Error(w, "invalid vote type: must be UP or DOWN", http.StatusBadRequest)
+			return
+		}
+
+		ctx := r.Context()
+		resp, err := voteSvc.RecordVote(ctx, submissionID, body.UserID, voteType)
+		if err != nil {
+			log.Printf("RecordVote error: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	log.Printf("Vote HTTP server running on port %s", cfg.Port)
+	if err := http.ListenAndServe(":"+cfg.Port, mux); err != nil {
+		log.Fatalf("HTTP server failed: %v", err)
 	}
 }

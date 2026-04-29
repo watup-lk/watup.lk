@@ -6,15 +6,16 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
-	v1 "github.com/watup-lk/vote-service/api/proto/v1"
 	"github.com/watup-lk/vote-service/internal/kafka"
 	"github.com/watup-lk/vote-service/internal/repository"
 )
 
-type voteRepo interface {
+type voteRepository interface {
 	RecordVote(ctx context.Context, submissionID, userID, voteType string) (int, error)
 	ApproveSubmission(ctx context.Context, submissionID string) error
+	GetVoteCounts(ctx context.Context) ([]repository.VoteCount, error)
 }
 
 type thresholdPublisher interface {
@@ -22,8 +23,7 @@ type thresholdPublisher interface {
 }
 
 type VoteService struct {
-	v1.UnimplementedVoteServiceServer
-	repo              voteRepo
+	repo              voteRepository
 	kafka             thresholdPublisher
 	approvalThreshold int
 }
@@ -42,18 +42,19 @@ func NewVoteService(repo *repository.PostgresRepo, k *kafka.Producer) *VoteServi
 	}
 }
 
-func (s *VoteService) RecordVote(ctx context.Context, req *v1.RecordVoteRequest) (*v1.RecordVoteResponse, error) {
-	userID, ok := ctx.Value("user_id").(string)
-	if !ok || userID == "" {
-		return nil, errors.New("missing authenticated user id")
-	}
-	return s.RecordVoteHTTP(ctx, req.SubmissionId, userID, req.VoteType)
+type RecordVoteResponse struct {
+	Success          bool   `json:"success"`
+	Message          string `json:"message"`
+	ThresholdReached bool   `json:"threshold_reached"`
 }
 
-// RecordVoteHTTP is called by both the gRPC handler and the HTTP handler.
-func (s *VoteService) RecordVoteHTTP(ctx context.Context, submissionID, userID string, voteType v1.RecordVoteRequest_VoteType) (*v1.RecordVoteResponse, error) {
+func (s *VoteService) RecordVote(ctx context.Context, submissionID, userID string, voteType string) (*RecordVoteResponse, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errors.New("missing user id")
+	}
+
 	dbVoteType := "UP"
-	if voteType == v1.RecordVoteRequest_DOWNVOTE {
+	if strings.ToUpper(strings.TrimSpace(voteType)) == "DOWN" {
 		dbVoteType = "DOWN"
 	}
 	currentUpvotes, err := s.repo.RecordVote(ctx, submissionID, userID, dbVoteType)
@@ -61,11 +62,24 @@ func (s *VoteService) RecordVoteHTTP(ctx context.Context, submissionID, userID s
 		return nil, err
 	}
 
+	thresholdReached, err := s.HandleThresholdReached(ctx, submissionID, currentUpvotes)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RecordVoteResponse{
+		Success:          true,
+		Message:          "Vote recorded successfully",
+		ThresholdReached: thresholdReached,
+	}, nil
+}
+
+func (s *VoteService) HandleThresholdReached(ctx context.Context, submissionID string, currentUpvotes int) (bool, error) {
 	thresholdReached := currentUpvotes >= s.approvalThreshold
 
 	if thresholdReached {
 		if err := s.repo.ApproveSubmission(ctx, submissionID); err != nil {
-			return nil, err
+			return true, err
 		}
 		if s.kafka != nil {
 			err := s.kafka.PublishThresholdReached(ctx, submissionID)
@@ -75,9 +89,9 @@ func (s *VoteService) RecordVoteHTTP(ctx context.Context, submissionID, userID s
 		}
 	}
 
-	return &v1.RecordVoteResponse{
-		Success:          true,
-		Message:          "Vote recorded successfully",
-		ThresholdReached: thresholdReached,
-	}, nil
+	return thresholdReached, nil
+}
+
+func (s *VoteService) GetVoteCounts(ctx context.Context) ([]repository.VoteCount, error) {
+	return s.repo.GetVoteCounts(ctx)
 }

@@ -13,10 +13,12 @@ type fakeRepo struct {
 	submissions  []repository.Submission
 	created      repository.Submission
 	err          error
+	findFilter   repository.FindFilter
 	createParams repository.CreateParams
 }
 
-func (f *fakeRepo) FindApproved(_ context.Context, _ repository.FindFilter) ([]repository.Submission, error) {
+func (f *fakeRepo) FindApproved(_ context.Context, filter repository.FindFilter) ([]repository.Submission, error) {
+	f.findFilter = filter
 	return f.submissions, f.err
 }
 
@@ -153,11 +155,45 @@ func TestCreate_NormalizesAndTrimsCreateParams(t *testing.T) {
 	if params.ExperienceLevel != &level {
 		t.Fatalf("expected experience level pointer to be forwarded")
 	}
-	if params.WorkType != &workType {
-		t.Fatalf("expected work type pointer to be forwarded")
+	if params.WorkType == nil || *params.WorkType != workType {
+		t.Fatalf("expected normalized work type, got %#v", params.WorkType)
 	}
 	if !params.IsAnonymized {
 		t.Fatal("expected anonymized flag to be forwarded")
+	}
+}
+
+func TestCreate_NormalizesLowercaseWorkType(t *testing.T) {
+	repo := &fakeRepo{created: repository.Submission{
+		ID: "abc", Role: "Engineer", Country: "LK", Currency: "LKR",
+		SalaryAmount: 100000, Status: "PENDING", CreatedAt: time.Now(),
+	}}
+	svc := newTestService(repo)
+	workType := " hybrid "
+
+	_, err := svc.Create(context.Background(), CreateRequest{
+		Role:             "Engineer",
+		MonthlySalaryLKR: 100000,
+		WorkType:         &workType,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.createParams.WorkType == nil || *repo.createParams.WorkType != "Hybrid" {
+		t.Fatalf("expected Hybrid work type, got %#v", repo.createParams.WorkType)
+	}
+}
+
+func TestList_NormalizesLowercaseWorkTypeFilter(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := newTestService(repo)
+
+	_, err := svc.List(context.Background(), repository.FindFilter{WorkType: "remote"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.findFilter.WorkType != "Remote" {
+		t.Fatalf("expected Remote work type filter, got %q", repo.findFilter.WorkType)
 	}
 }
 
