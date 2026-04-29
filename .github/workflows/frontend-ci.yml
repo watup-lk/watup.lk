@@ -87,6 +87,7 @@ jobs:
           args: >
             -Dsonar.projectKey=watup-lk
             -Dsonar.projectName=watup.lk
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
   security:
