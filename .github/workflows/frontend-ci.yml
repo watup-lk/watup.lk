@@ -85,8 +85,8 @@ jobs:
         with:
           projectBaseDir: watup-frontend
           args: >
-            -Dsonar.projectKey=watup-frontend
-            -Dsonar.projectName=watup-frontend
+            -Dsonar.projectKey=watup-lk
+            -Dsonar.projectName=watup.lk
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
   security:

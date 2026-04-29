@@ -111,8 +111,8 @@ jobs:
         with:
           projectBaseDir: salary-service
           args: >
-            -Dsonar.projectKey=watup-salary-service
-            -Dsonar.projectName=watup-salary-service
+            -Dsonar.projectKey=watup-lk
+            -Dsonar.projectName=watup.lk
             -Dsonar.go.coverage.reportPaths=coverage.out
 
   security:

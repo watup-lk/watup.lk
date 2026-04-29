@@ -111,8 +111,8 @@ jobs:
         with:
           projectBaseDir: search-service
           args: >
-            -Dsonar.projectKey=watup-search-service
-            -Dsonar.projectName=watup-search-service
+            -Dsonar.projectKey=watup-lk
+            -Dsonar.projectName=watup.lk
             -Dsonar.go.coverage.reportPaths=coverage.out
 
   security:

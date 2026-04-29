@@ -60,8 +60,8 @@ jobs:
         with:
           projectBaseDir: infra-db
           args: >
-            -Dsonar.projectKey=watup-db
-            -Dsonar.projectName=watup-db
+            -Dsonar.projectKey=watup-lk
+            -Dsonar.projectName=watup.lk
 
   publish:
     name: Build, Scan, and Push ACR Image

@@ -85,8 +85,8 @@ jobs:
         with:
           projectBaseDir: stats-service
           args: >
-            -Dsonar.projectKey=watup-stats-service
-            -Dsonar.projectName=watup-stats-service
+            -Dsonar.projectKey=watup-lk
+            -Dsonar.projectName=watup.lk
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
   security:

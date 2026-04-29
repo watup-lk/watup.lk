@@ -111,8 +111,8 @@ jobs:
         with:
           projectBaseDir: vote-service
           args: >
-            -Dsonar.projectKey=watup-vote-service
-            -Dsonar.projectName=watup-vote-service
+            -Dsonar.projectKey=watup-lk
+            -Dsonar.projectName=watup.lk
             -Dsonar.go.coverage.reportPaths=coverage.out
 
   security:

@@ -11,24 +11,28 @@ const SALARY_URL    = process.env.SALARY_SERVICE_URL    ?? 'http://salary-servic
 const STATS_URL     = process.env.STATS_SERVICE_URL     ?? 'http://stats-service:8080';
 const VOTE_HTTP_URL = process.env.VOTE_HTTP_SERVICE_URL ?? 'http://vote-service:8080';
 
-export function createApp() {
-const app = express();
+export function writeServiceUnavailable(serviceName: string, res: any) {
+  if (!res.headersSent) {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+  }
+  res.end(JSON.stringify({ message: `${serviceName} service unavailable` }));
+}
 
-function serviceProxy(target: string, pathRewrite: Record<string, string>, serviceName: string) {
+export function serviceProxy(target: string, pathRewrite: Record<string, string>, serviceName: string) {
   return createProxyMiddleware({
     target,
     changeOrigin: true,
     pathRewrite,
     on: {
       error: (_err, _req, res: any) => {
-        if (!res.headersSent) {
-          res.writeHead(502, { 'Content-Type': 'application/json' });
-        }
-        res.end(JSON.stringify({ message: `${serviceName} service unavailable` }));
+        writeServiceUnavailable(serviceName, res);
       },
     },
   });
 }
+
+export function createApp() {
+  const app = express();
 
 // CORS — allow frontend to call BFF
 app.use((_req, res, next) => {
@@ -217,6 +221,7 @@ app.use('/api/analytics', serviceProxy(STATS_URL, { '^/': '/analytics/' }, 'stat
 return app;
 }
 
+/* istanbul ignore next */
 if (require.main === module) {
   const app = createApp();
   app.listen(PORT, () => {

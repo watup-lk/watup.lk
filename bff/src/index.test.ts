@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { createApp } from './index';
+import { createApp, writeServiceUnavailable } from './index';
 
 const fetchMock = jest.fn();
 
@@ -30,6 +30,32 @@ describe('bff app', () => {
     const preflight = await request(createApp()).options('/api/vote/salary-1');
     expect(preflight.status).toBe(204);
     expect(preflight.headers['access-control-allow-origin']).toBe('*');
+  });
+
+  it('writes service-specific proxy unavailable responses', () => {
+    const res = {
+      headersSent: false,
+      writeHead: jest.fn(),
+      end: jest.fn(),
+    };
+
+    writeServiceUnavailable('salary', res);
+
+    expect(res.writeHead).toHaveBeenCalledWith(502, { 'Content-Type': 'application/json' });
+    expect(res.end).toHaveBeenCalledWith(JSON.stringify({ message: 'salary service unavailable' }));
+  });
+
+  it('does not rewrite headers for started proxy responses', () => {
+    const res = {
+      headersSent: true,
+      writeHead: jest.fn(),
+      end: jest.fn(),
+    };
+
+    writeServiceUnavailable('search', res);
+
+    expect(res.writeHead).not.toHaveBeenCalled();
+    expect(res.end).toHaveBeenCalledWith(JSON.stringify({ message: 'search service unavailable' }));
   });
 
   it('forwards authenticated vote requests to vote-service', async () => {
@@ -105,6 +131,48 @@ describe('bff app', () => {
     );
   });
 
+  it('loads recently approved vote queue from approved search results', async () => {
+    fetchMock
+      .mockResolvedValueOnce(authResponse())
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 'salary-2', status: 'APPROVED' }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }));
+
+    const res = await request(createApp())
+      .get('/api/vote/queue?filter=recently-approved')
+      .set('Authorization', 'Bearer token');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([{ id: 'salary-2', status: 'APPROVED', upvotes: 0, downvotes: 0 }]);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://search-service:8080/search?status=APPROVED&limit=50',
+    );
+  });
+
+  it('filters vote queue to submissions one vote away from approval', async () => {
+    fetchMock
+      .mockResolvedValueOnce(authResponse())
+      .mockResolvedValueOnce(jsonResponse({
+        results: [
+          { id: 'salary-ready', status: 'PENDING' },
+          { id: 'salary-too-low', status: 'PENDING' },
+        ],
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        results: [
+          { submission_id: 'salary-ready', up_count: 4, down_count: 0 },
+          { submission_id: 'salary-too-low', up_count: 2, down_count: 0 },
+        ],
+      }));
+
+    const res = await request(createApp())
+      .get('/api/vote/queue?filter=needs-vote')
+      .set('Authorization', 'Bearer token');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([{ id: 'salary-ready', status: 'PENDING', upvotes: 4, downvotes: 0 }]);
+  });
+
   it('returns bad gateway when vote queue search fails', async () => {
     fetchMock
       .mockResolvedValueOnce(authResponse())
@@ -143,6 +211,24 @@ describe('bff app', () => {
 
     expect(res.status).toBe(502);
     expect(res.body).toEqual({ message: 'vote service unavailable' });
+  });
+
+  it('returns bad gateway when vote queue response parsing fails', async () => {
+    fetchMock
+      .mockResolvedValueOnce(authResponse())
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockRejectedValue(new Error('invalid vote counts')),
+      });
+
+    const res = await request(createApp())
+      .get('/api/vote/queue')
+      .set('Authorization', 'Bearer token');
+
+    expect(res.status).toBe(502);
+    expect(res.body).toEqual({ message: 'search service unavailable' });
   });
 
   it('builds the dashboard from pending and approved search results', async () => {

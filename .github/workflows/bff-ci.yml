@@ -85,8 +85,8 @@ jobs:
         with:
           projectBaseDir: bff
           args: >
-            -Dsonar.projectKey=watup-bff
-            -Dsonar.projectName=watup-bff
+            -Dsonar.projectKey=watup-lk
+            -Dsonar.projectName=watup.lk
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
   security:

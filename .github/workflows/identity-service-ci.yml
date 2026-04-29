@@ -111,8 +111,8 @@ jobs:
         with:
           projectBaseDir: identity-service
           args: >
-            -Dsonar.projectKey=watup-identity-service
-            -Dsonar.projectName=watup-identity-service
+            -Dsonar.projectKey=watup-lk
+            -Dsonar.projectName=watup.lk
             -Dsonar.go.coverage.reportPaths=coverage.out
 
   security:
