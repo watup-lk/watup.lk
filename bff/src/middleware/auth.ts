@@ -26,6 +26,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     req.headers['x-user-id'] = user_id;
     next();
   } catch {
-    res.status(502).json({ message: 'Auth service unavailable' });
+    res.status(502).json({ message: 'identity service unavailable' });
   }
 }

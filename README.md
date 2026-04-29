@@ -1,6 +1,20 @@
 # watup.lk
 
-A microservice-based salary transparency platform for Sri Lanka, built as a cloud-native application deployed on Azure Kubernetes Service (AKS). Users can anonymously submit salary data, search and filter entries, vote on their trustworthiness, and explore salary analytics.
+A microservice-based salary transparency platform for Sri Lanka. Users can anonymously submit salary data, search and filter entries, vote on their trustworthiness, and explore salary analytics.
+
+Kubernetes and cloud deployment resources are kept outside this application repository in the separate `watup.lk-k8s-deployment` repo.
+
+## CI/CD
+
+Service workflows in `.github/workflows/` build, test, scan, and publish images to Azure Container Registry. AKS deployment is handled by the separate `watup.lk-k8s-deployment` repository.
+
+Required GitHub secrets for image publishing:
+
+- `AZURE_CREDENTIALS`
+- `ACR_NAME`
+- `ACR_LOGIN_SERVER`
+- `SONAR_TOKEN`
+- `SONAR_HOST_URL`
 
 ## Services
 
@@ -115,7 +129,7 @@ Single PostgreSQL 16 instance with three logical schemas:
 |--------|--------------|--------|
 | `identity_schema` | identity-service | `users`, `refresh_tokens`, `audit_logs`, `password_reset_tokens` |
 | `salary_schema` | search-service, stats-service | `submissions` (PENDING → APPROVED → REJECTED) |
-| `community_schema` | vote-service | `votes`, `submission_vote_counts` |
+| `community_schema` | vote-service | `votes`, `vote_counts` |
 
 Connect with any PostgreSQL client using host `localhost`, port `5432`, user `watup_user`, password `watup_dev_password`, database `watup_db`.
 

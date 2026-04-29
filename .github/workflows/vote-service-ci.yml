@@ -1,4 +1,4 @@
-name: Search Service CI/CD
+name: Vote Service CI/CD
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
       - "feature/**"
       - main
     paths:
-      - "search-service/**"
-      - ".github/workflows/search-service-ci.yml"
+      - "vote-service/**"
+      - ".github/workflows/vote-service-ci.yml"
   pull_request:
     types:
       - opened
@@ -17,8 +17,8 @@ on:
     branches:
       - main
     paths:
-      - "search-service/**"
-      - ".github/workflows/search-service-ci.yml"
+      - "vote-service/**"
+      - ".github/workflows/vote-service-ci.yml"
 
 permissions:
   contents: read
@@ -27,8 +27,8 @@ permissions:
 
 env:
   GO_VERSION: "1.25"
-  SERVICE_PATH: search-service
-  IMAGE_NAME: search-service
+  SERVICE_PATH: vote-service
+  IMAGE_NAME: vote-service
 
 jobs:
   test:
@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: search-service
+        working-directory: vote-service
 
     services:
       postgres:
@@ -75,7 +75,7 @@ jobs:
       - name: Run tests
         run: |
           go test -v -race -covermode=atomic \
-            -coverpkg=./internal/handlers/...,./internal/config/...,./internal/repository/... \
+            -coverpkg=./internal/config/...,./internal/service/...,./internal/repository/... \
             -coverprofile=coverage.out \
             ./...
           go tool cover -func=coverage.out | tee coverage-summary.txt
@@ -85,10 +85,10 @@ jobs:
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: search-service-coverage
+          name: vote-service-coverage
           path: |
-            search-service/coverage.out
-            search-service/coverage-summary.txt
+            vote-service/coverage.out
+            vote-service/coverage-summary.txt
           retention-days: 7
 
 
@@ -98,7 +98,7 @@ jobs:
     needs: test
     defaults:
       run:
-        working-directory: search-service
+        working-directory: vote-service
 
     steps:
       - name: Checkout
@@ -118,10 +118,10 @@ jobs:
       - name: Upload gosec SARIF
         uses: github/codeql-action/upload-sarif@v4
         continue-on-error: true
-        if: always() && hashFiles('search-service/gosec-results.sarif') != ''
+        if: always() && hashFiles('vote-service/gosec-results.sarif') != ''
         with:
-          sarif_file: search-service/gosec-results.sarif
-          category: gosec-search-service
+          sarif_file: vote-service/gosec-results.sarif
+          category: gosec-vote-service
 
       - name: Run govulncheck
         run: |
@@ -139,7 +139,7 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'feature/')
     defaults:
       run:
-        working-directory: search-service
+        working-directory: vote-service
 
     steps:
       - name: Checkout
@@ -184,7 +184,7 @@ jobs:
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: trivy-results.sarif
-          category: trivy-search-service
+          category: trivy-vote-service
 
       - name: Push Docker image to ACR
         run: |

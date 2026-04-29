@@ -60,7 +60,7 @@ func (r *PostgresRepo) Ping(ctx context.Context) error {
 }
 
 func (r *PostgresRepo) Search(ctx context.Context, f SearchFilter) (SearchResult, error) {
-	status := f.Status
+	status := strings.ToUpper(strings.TrimSpace(f.Status))
 	if status == "" {
 		status = "APPROVED"
 	}

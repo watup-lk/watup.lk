@@ -34,7 +34,7 @@ func (r *PostgresRepo) RecordVote(ctx context.Context, submissionID, userID, vot
 		)
 		SELECT COALESCE((SELECT vote_type FROM old_vote), '') AS old_vote_type
 	`
-	
+
 	var oldVoteType string
 	err = tx.QueryRowContext(ctx, query, submissionID, userID, voteType).Scan(&oldVoteType)
 	if err != nil {
@@ -58,8 +58,17 @@ func (r *PostgresRepo) RecordVote(ctx context.Context, submissionID, userID, vot
 
 	// 3. Count total upvotes for the threshold check
 	count, err := r.GetTotalUpvotes(ctx, submissionID, tx)
+	if err != nil {
+		return 0, err
+	}
 
 	return count, tx.Commit()
+}
+
+func (r *PostgresRepo) ApproveSubmission(ctx context.Context, submissionID string) error {
+	const query = `UPDATE salary_schema.submissions SET status = 'APPROVED' WHERE id = $1 AND status = 'PENDING'`
+	_, err := r.db.ExecContext(ctx, query, submissionID)
+	return err
 }
 
 func (r *PostgresRepo) GetTotalUpvotes(ctx context.Context, submissionID string, tx *sql.Tx) (int, error) {
@@ -161,4 +170,3 @@ func (r *PostgresRepo) GetVoteCounts(ctx context.Context) ([]VoteCount, error) {
 	}
 	return items, nil
 }
-

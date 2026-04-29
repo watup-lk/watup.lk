@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 # ── Identity Service End-to-End Test Script ─────────────────────────────────
 # Demonstrates the full auth workflow required by the assignment spec.
-# Usage: ./test-e2e.sh [BASE_URL]
+# Usage: ./test-e2e.sh [BASE_URL] [HEALTH_URL]
+#
+# BASE_URL    - public entry point for auth endpoints (via ingress or direct)
+# HEALTH_URL  - direct service URL for health probes (k8s-internal, not in ingress)
+#               Defaults to BASE_URL. Use kubectl port-forward for local clusters.
 #
 # Prerequisites: curl, jq
-# Example: ./test-e2e.sh http://localhost:8080
-#          ./test-e2e.sh https://your-aks-ip/auth
+# Examples:
+#   Direct:         ./test-e2e.sh http://localhost:8080
+#   Via ingress:    ./test-e2e.sh http://localhost http://localhost:18080
+#   AKS:            ./test-e2e.sh https://your-aks-ip/auth https://your-aks-ip/auth
 
 set -euo pipefail
 
 BASE_URL="${1:-http://localhost:8080}"
+HEALTH_URL="${2:-$BASE_URL}"
 PASS=0
 FAIL=0
 
@@ -50,13 +57,15 @@ assert_field() {
 }
 
 # ── 0. Health Check ───────────────────────────────────────────────────────────
+# Health probes are k8s-internal endpoints (called by kubelet, not via ingress).
+# HEALTH_URL should point directly to the service (port-forward or direct pod).
 
-blue "\n=== 0. Health Probes ==="
+blue "\n=== 0. Health Probes (direct service: $HEALTH_URL) ==="
 
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/health/live")
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL/health/live")
 assert_status "GET /health/live" 200 "$STATUS"
 
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/health/ready")
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL/health/ready")
 assert_status "GET /health/ready" 200 "$STATUS"
 
 # ── 1. Signup ─────────────────────────────────────────────────────────────────
@@ -218,10 +227,11 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/auth/refresh"
 assert_status "Refresh after logout → 401" 401 "$STATUS"
 
 # ── 6. Security Headers ───────────────────────────────────────────────────────
+# Check headers on an auth endpoint — health is k8s-internal and not in ingress.
 
 blue "\n=== 6. Security Headers ==="
 
-HEADERS=$(curl -s -I "$BASE_URL/health/live")
+HEADERS=$(curl -s -I "$BASE_URL/auth/validate")
 
 check_header() {
   local header="$1"

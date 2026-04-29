@@ -11,7 +11,7 @@ import {
   SearchResult,
 } from '@/types';
 
-const BFF_URL = process.env.NEXT_PUBLIC_BFF_URL ?? 'http://localhost:4000';
+const BFF_URL = process.env.NEXT_PUBLIC_BFF_URL ?? 'http://localhost:8080';
 
 async function request<T>(
   path: string,
@@ -51,7 +51,7 @@ export async function submitSalary(
     work_type:          data.workType,
     monthly_salary_lkr: data.monthlySalaryLKR,
     years_of_experience: data.yearsOfExperience,
-    anonymized:         data.anonymize,
+    anonymize:          data.anonymize,
   };
   return request('/api/salary', { method: 'POST', body: JSON.stringify(payload) });
 }

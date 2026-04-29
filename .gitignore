@@ -23,6 +23,9 @@ dist/
 build/
 .next/
 out/
+coverage/
+coverage.out
+coverage-summary.txt
 
 # Cache
 .cache

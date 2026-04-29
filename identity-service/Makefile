@@ -18,7 +18,6 @@ PROTO_SRC     := api/proto/v1/identity.proto
 
 .PHONY: all build test test-cover lint fmt vet proto \
         docker-build docker-push docker-run \
-        k8s-apply k8s-delete k8s-status \
         clean help
 
 ## help: Show this help message
@@ -101,9 +100,8 @@ docker-build:
 		.
 	@echo "✓ Built $(IMAGE):$(TAG)"
 
-## docker-push: Push the image to Azure Container Registry
+## docker-push: Push the image to the configured registry
 docker-push: docker-build
-	az acr login --name $(shell echo $(REGISTRY) | cut -d. -f1)
 	docker push $(IMAGE):$(TAG)
 	docker push $(IMAGE):latest
 	@echo "✓ Pushed to $(REGISTRY)"
@@ -115,67 +113,6 @@ docker-run:
 		-e JWT_SECRET="$(JWT_SECRET)" \
 		-e KAFKA_BROKERS="$(KAFKA_BROKERS)" \
 		$(IMAGE):$(TAG)
-
-# ── Kubernetes ─────────────────────────────────────────────────────────────────
-
-## k8s-apply: Apply all Kubernetes manifests to the cluster
-k8s-apply:
-	@echo "Applying namespaces..."
-	kubectl apply -f k8s/namespace.yaml
-	@echo "Applying PostgreSQL (data namespace)..."
-	kubectl apply -f k8s/postgres/
-	@echo "Applying Kafka..."
-	kubectl apply -f k8s/kafka/
-	@echo "Applying identity-service..."
-	kubectl apply -f k8s/serviceaccount.yaml
-	kubectl apply -f k8s/configmap.yaml
-	kubectl apply -f k8s/secret.yaml
-	kubectl apply -f k8s/deployment.yaml
-	kubectl apply -f k8s/service.yaml
-	kubectl apply -f k8s/hpa.yaml
-	kubectl apply -f k8s/pdb.yaml
-	kubectl apply -f k8s/ingress.yaml
-	kubectl apply -f k8s/network-policy.yaml
-	@echo "✓ All manifests applied"
-
-## k8s-delete: Remove all identity-service resources from the cluster
-k8s-delete:
-	kubectl delete -f k8s/network-policy.yaml --ignore-not-found
-	kubectl delete -f k8s/ingress.yaml --ignore-not-found
-	kubectl delete -f k8s/pdb.yaml --ignore-not-found
-	kubectl delete -f k8s/hpa.yaml --ignore-not-found
-	kubectl delete -f k8s/deployment.yaml --ignore-not-found
-	kubectl delete -f k8s/service.yaml --ignore-not-found
-	kubectl delete -f k8s/configmap.yaml --ignore-not-found
-	kubectl delete -f k8s/secret.yaml --ignore-not-found
-	kubectl delete -f k8s/serviceaccount.yaml --ignore-not-found
-	kubectl delete -f k8s/kafka/ --ignore-not-found
-	# Note: postgres PVC is NOT deleted automatically (data safety)
-	@echo "⚠ PostgreSQL PVC NOT deleted — run 'kubectl delete pvc postgres-pvc -n data' to remove data"
-
-## k8s-status: Show status of all identity-service resources
-k8s-status:
-	@echo "=== Deployments (app namespace) ==="
-	kubectl get deployments -n app
-	@echo ""
-	@echo "=== Pods (app namespace) ==="
-	kubectl get pods -n app -l app=identity-service
-	@echo ""
-	@echo "=== Services ==="
-	kubectl get svc -n app identity-service
-	@echo ""
-	@echo "=== HPA ==="
-	kubectl get hpa -n app identity-service-hpa
-	@echo ""
-	@echo "=== PDB ==="
-	kubectl get pdb -n app identity-service-pdb
-	@echo ""
-	@echo "=== Ingress ==="
-	kubectl get ingress -n app
-
-## k8s-logs: Tail logs from the identity-service pod
-k8s-logs:
-	kubectl logs -n app -l app=identity-service -f --tail=100
 
 # ── Cleanup ────────────────────────────────────────────────────────────────────
 

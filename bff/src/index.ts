@@ -3,7 +3,6 @@ import type { Request, Response } from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { requireAuth } from './middleware/auth';
 
-const app  = express();
 const PORT = process.env.PORT ?? '8080';
 
 const IDENTITY_URL  = process.env.IDENTITY_SERVICE_URL  ?? 'http://identity-service:8080';
@@ -11,6 +10,29 @@ const SEARCH_URL    = process.env.SEARCH_SERVICE_URL    ?? 'http://search-servic
 const SALARY_URL    = process.env.SALARY_SERVICE_URL    ?? 'http://salary-service:8080';
 const STATS_URL     = process.env.STATS_SERVICE_URL     ?? 'http://stats-service:8080';
 const VOTE_HTTP_URL = process.env.VOTE_HTTP_SERVICE_URL ?? 'http://vote-service:8080';
+
+export function writeServiceUnavailable(serviceName: string, res: any) {
+  if (!res.headersSent) {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+  }
+  res.end(JSON.stringify({ message: `${serviceName} service unavailable` }));
+}
+
+export function serviceProxy(target: string, pathRewrite: Record<string, string>, serviceName: string) {
+  return createProxyMiddleware({
+    target,
+    changeOrigin: true,
+    pathRewrite,
+    on: {
+      error: (_err, _req, res: any) => {
+        writeServiceUnavailable(serviceName, res);
+      },
+    },
+  });
+}
+
+export function createApp() {
+  const app = express();
 
 // CORS — allow frontend to call BFF
 app.use((_req, res, next) => {
@@ -33,25 +55,13 @@ app.get('/health/ready', (_req, res) => res.json({ status: 'ok' }));
 // ── Auth (public — no JWT required) ──────────────────────────────────────────
 // NOTE: proxy routes must come before express.json() — the body stream must be
 // untouched so http-proxy-middleware can forward it as-is to the upstream.
-app.use('/api/auth', createProxyMiddleware({
-  target:       IDENTITY_URL,
-  changeOrigin: true,
-  pathRewrite:  { '^/': '/auth/' },
-}));
+app.use('/api/auth', serviceProxy(IDENTITY_URL, { '^/': '/auth/' }, 'identity'));
 
 // ── Search (public) ───────────────────────────────────────────────────────────
-app.use('/api/search', createProxyMiddleware({
-  target:       SEARCH_URL,
-  changeOrigin: true,
-  pathRewrite:  { '^/': '/search' },
-}));
+app.use('/api/search', serviceProxy(SEARCH_URL, { '^/': '/search' }, 'search'));
 
 // ── Salary (public — supports anonymous submissions) ──────────────────────────
-app.use('/api/salary', createProxyMiddleware({
-  target:       SALARY_URL,
-  changeOrigin: true,
-  pathRewrite:  { '^/': '/salary' },
-}));
+app.use('/api/salary', serviceProxy(SALARY_URL, { '^/': '/salary' }, 'salary'));
 
 // Body parser — registered after proxy routes so their streams are not consumed
 app.use(express.json());
@@ -84,12 +94,24 @@ app.get('/api/vote/queue', requireAuth, async (req: Request, res: Response) => {
     if (filter === 'recently-approved') {
         searchPath = '/search?status=APPROVED&limit=50';
     }
-    const searchRes = await searchFetch(searchPath);
+    let searchRes: globalThis.Response;
+    try {
+      searchRes = await searchFetch(searchPath);
+    } catch {
+      res.status(502).json({ message: 'search service unavailable' });
+      return;
+    }
     if (!searchRes.ok) { res.status(searchRes.status).json({ message: 'search service error' }); return; }
     const searchBody = await searchRes.json() as { results: any[] };
 
     // 2. Fetch up-to-date counts from vote-service
-    const voteRes = await fetch(`${VOTE_HTTP_URL}/vote/counts`);
+    let voteRes: globalThis.Response;
+    try {
+      voteRes = await fetch(`${VOTE_HTTP_URL}/vote/counts`);
+    } catch {
+      res.status(502).json({ message: 'vote service unavailable' });
+      return;
+    }
     if (!voteRes.ok) { res.status(voteRes.status).json({ message: 'vote service error' }); return; }
     const voteBody = await voteRes.json() as { results: any[] };
 
@@ -127,7 +149,7 @@ app.get('/api/vote/queue', requireAuth, async (req: Request, res: Response) => {
 
     res.json(merged);
   } catch {
-    res.status(502).json({ message: 'service unavailable' });
+    res.status(502).json({ message: 'search service unavailable' });
   }
 });
 
@@ -140,7 +162,7 @@ app.get('/api/dashboard', requireAuth, async (_req: Request, res: Response) => {
     ]);
 
     if (!pendingRes.ok || !approvedRes.ok) {
-      res.status(502).json({ message: 'upstream error' }); return;
+      res.status(502).json({ message: 'search service error' }); return;
     }
 
     const pendingBody  = await pendingRes.json()  as { results: any[] };
@@ -191,23 +213,22 @@ app.get('/api/dashboard', requireAuth, async (_req: Request, res: Response) => {
 });
 
 // ── Stats (public) — proxy to stats-service ──────────────────────────────────
-app.use('/api/stats', createProxyMiddleware({
-  target:       STATS_URL,
-  changeOrigin: true,
-  pathRewrite:  { '^/': '/stats/' },
-}));
+app.use('/api/stats', serviceProxy(STATS_URL, { '^/': '/stats/' }, 'stats'));
 
 // ── Analytics (public) — proxy to stats-service ───────────────────────────────
-app.use('/api/analytics', createProxyMiddleware({
-  target:       STATS_URL,
-  changeOrigin: true,
-  pathRewrite:  { '^/': '/analytics/' },
-}));
+app.use('/api/analytics', serviceProxy(STATS_URL, { '^/': '/analytics/' }, 'stats'));
 
-app.listen(PORT, () => {
-  console.log(`bff listening on :${PORT}`);
-  console.log(`  identity → ${IDENTITY_URL}`);
-  console.log(`  search   → ${SEARCH_URL}`);
-  console.log(`  salary   → ${SALARY_URL}`);
-  console.log(`  stats    → ${STATS_URL}`);
-});
+return app;
+}
+
+/* istanbul ignore next */
+if (require.main === module) {
+  const app = createApp();
+  app.listen(PORT, () => {
+    console.log(`bff listening on :${PORT}`);
+    console.log(`  identity → ${IDENTITY_URL}`);
+    console.log(`  search   → ${SEARCH_URL}`);
+    console.log(`  salary   → ${SALARY_URL}`);
+    console.log(`  stats    → ${STATS_URL}`);
+  });
+}
