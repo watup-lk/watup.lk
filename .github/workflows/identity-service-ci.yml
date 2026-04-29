@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "feature/**"
+      - main
     paths:
       - "identity-service/**"
       - ".github/workflows/identity-service-ci.yml"
@@ -22,6 +23,7 @@ on:
 permissions:
   contents: read
   security-events: write
+  actions: read
 
 env:
   GO_VERSION: "1.25"

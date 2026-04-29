@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "feature/**"
+      - main
     paths:
       - "salary-service/**"
       - ".github/workflows/salary-service-ci.yml"
@@ -22,6 +23,7 @@ on:
 permissions:
   contents: read
   security-events: write
+  actions: read
 
 env:
   GO_VERSION: "1.25"
