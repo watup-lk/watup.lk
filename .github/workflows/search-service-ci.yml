@@ -113,7 +113,7 @@ jobs:
           args: >
             -Dsonar.projectKey=watup-lk
             -Dsonar.projectName=watup.lk
-            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.organization=watup-lk
             -Dsonar.go.coverage.reportPaths=coverage.out
 
   security:

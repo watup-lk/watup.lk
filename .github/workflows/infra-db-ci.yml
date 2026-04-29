@@ -62,7 +62,7 @@ jobs:
           args: >
             -Dsonar.projectKey=watup-lk
             -Dsonar.projectName=watup.lk
-            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.organization=watup-lk
 
   publish:
     name: Build, Scan, and Push ACR Image
