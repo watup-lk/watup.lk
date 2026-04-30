@@ -66,6 +66,18 @@ app.use('/api/salary', serviceProxy(SALARY_URL, { '^/': '/salary' }, 'salary'));
 // Body parser — registered after proxy routes so their streams are not consumed
 app.use(express.json());
 
+// ── Report (protected) — marks a submission as REPORTED ──────────────────────
+app.post('/api/report/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const upstream = await fetch(`${SALARY_URL}/salary/${id}/report`, { method: 'POST' });
+    if (!upstream.ok) { res.status(upstream.status).json({ message: 'failed to report submission' }); return; }
+    res.status(204).end();
+  } catch {
+    res.status(502).json({ message: 'salary service unavailable' });
+  }
+});
+
 // ── Vote (protected) — forward to vote-service HTTP ──────────────────────────
 app.post('/api/vote/:id', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -93,6 +105,8 @@ app.get('/api/vote/queue', requireAuth, async (req: Request, res: Response) => {
     let searchPath = '/search?status=PENDING&limit=50';
     if (filter === 'recently-approved') {
         searchPath = '/search?status=APPROVED&limit=50';
+    } else if (filter === 'reported') {
+        searchPath = '/search?status=REPORTED&limit=50';
     }
     let searchRes: globalThis.Response;
     try {
@@ -102,7 +116,7 @@ app.get('/api/vote/queue', requireAuth, async (req: Request, res: Response) => {
       return;
     }
     if (!searchRes.ok) { res.status(searchRes.status).json({ message: 'search service error' }); return; }
-    const searchBody = await searchRes.json() as { results: any[] };
+    const searchBody = await searchRes.json() as { results: any[] | null };
 
     // 2. Fetch up-to-date counts from vote-service
     let voteRes: globalThis.Response;
@@ -119,7 +133,7 @@ app.get('/api/vote/queue', requireAuth, async (req: Request, res: Response) => {
     voteBody.results.forEach((v: any) => voteMap.set(v.submission_id, v));
 
     // 3. Merge data
-    let merged = searchBody.results.map((s: any) => {
+    let merged = (searchBody.results ?? []).map((s: any) => {
         const counts = voteMap.get(s.id) || { up_count: 0, down_count: 0 };
         return {
             ...s, // Preserve all original search-service fields just in case
@@ -156,9 +170,10 @@ app.get('/api/vote/queue', requireAuth, async (req: Request, res: Response) => {
 // ── Dashboard (protected) — aggregated from search-service ───────────────────
 app.get('/api/dashboard', requireAuth, async (_req: Request, res: Response) => {
   try {
-    const [pendingRes, approvedRes] = await Promise.all([
+    const [pendingRes, approvedRes, voteRes] = await Promise.all([
       searchFetch('/search?status=PENDING&limit=10'),
-      searchFetch('/search?limit=10'),
+      searchFetch('/search?status=APPROVED&limit=10'),
+      fetch(`${VOTE_HTTP_URL}/vote/counts`).catch(() => null),
     ]);
 
     if (!pendingRes.ok || !approvedRes.ok) {
@@ -170,15 +185,25 @@ app.get('/api/dashboard', requireAuth, async (_req: Request, res: Response) => {
 
     const APPROVAL_THRESHOLD = 5;
 
-    const pendingSubmissions = pendingBody.results.map((s: any) => ({
-      id:               s.id,
-      role:             s.role,
-      company:          s.company,
-      monthlySalaryLKR: s.monthlySalaryLKR,
-      votesFor:         s.upvotes   ?? 0,
-      votesAgainst:     s.downvotes ?? 0,
-      votesRequired:    APPROVAL_THRESHOLD,
-    }));
+    // Merge vote counts into pending submissions when vote-service is available
+    const voteMap = new Map<string, { up_count: number; down_count: number }>();
+    if (voteRes && voteRes.ok) {
+      const voteBody = await voteRes.json() as { results: any[] };
+      voteBody.results.forEach((v: any) => voteMap.set(v.submission_id, v));
+    }
+
+    const pendingSubmissions = pendingBody.results.map((s: any) => {
+      const counts = voteMap.get(s.id) ?? { up_count: 0, down_count: 0 };
+      return {
+        id:               s.id,
+        role:             s.role,
+        company:          s.company,
+        monthlySalaryLKR: s.monthlySalaryLKR,
+        votesFor:         counts.up_count,
+        votesAgainst:     counts.down_count,
+        votesRequired:    APPROVAL_THRESHOLD,
+      };
+    });
 
     const recentlyApproved = approvedBody.results.map((s: any) => ({
       id:               s.id,
@@ -186,6 +211,8 @@ app.get('/api/dashboard', requireAuth, async (_req: Request, res: Response) => {
       monthlySalaryLKR: s.monthlySalaryLKR,
       experienceLevel:  s.experienceLevel,
       companyType:      s.company,
+      workType:         s.workType,
+      country:          s.country,
     }));
 
     const salaries = approvedBody.results

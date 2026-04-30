@@ -79,7 +79,6 @@ export default function SearchModal({ onClose }: SearchModalProps) {
             autoComplete="off"
           />
           <div className={styles.shortcuts}>
-            <kbd>K</kbd>
             <kbd>ESC</kbd>
           </div>
         </div>

@@ -107,20 +107,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {tab === 'login' && (
-            <div className={styles.row}>
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={e => setRemember(e.target.checked)}
-                />
-                Remember me
-              </label>
-              <button type="button" className={styles.forgotLink}>Forgot password?</button>
-            </div>
-          )}
-
           {error && <p className={styles.error}>{error}</p>}
 
           <button type="submit" className={styles.submitBtn} disabled={loading}>
@@ -134,14 +120,6 @@ export default function LoginPage() {
 
         <div className={styles.divider} />
 
-        <div className={styles.oauthRow}>
-          <button className={styles.oauthBtn}>
-            <span>G</span> Google
-          </button>
-          <button className={styles.oauthBtn}>
-            <span>⌥</span> GitHub
-          </button>
-        </div>
       </div>
 
       <p className={styles.securityNote}>

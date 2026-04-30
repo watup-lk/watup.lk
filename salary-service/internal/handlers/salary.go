@@ -14,6 +14,7 @@ import (
 type salaryServicer interface {
 	List(ctx context.Context, f repository.FindFilter) ([]service.SubmissionResponse, error)
 	Create(ctx context.Context, req service.CreateRequest) (service.SubmissionResponse, error)
+	Report(ctx context.Context, id string) error
 }
 
 type SalaryHandler struct {
@@ -70,6 +71,21 @@ func (h *SalaryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, result)
+}
+
+// POST /salary/{id}/report
+func (h *SalaryHandler) Report(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "missing submission id")
+		return
+	}
+	if err := h.svc.Report(r.Context(), id); err != nil {
+		log.Printf("[salary] report error: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to report submission")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

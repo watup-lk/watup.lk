@@ -11,6 +11,7 @@ import (
 type salaryRepo interface {
 	FindApproved(ctx context.Context, f repository.FindFilter) ([]repository.Submission, error)
 	Create(ctx context.Context, p repository.CreateParams) (repository.Submission, error)
+	ReportSubmission(ctx context.Context, submissionID string) error
 }
 
 type kafkaPublisher interface {
@@ -99,6 +100,10 @@ func (s *SalaryService) Create(ctx context.Context, req CreateRequest) (Submissi
 	go s.kafka.PublishSubmissionCreated(context.Background(), saved.ID)
 
 	return toResponse(saved), nil
+}
+
+func (s *SalaryService) Report(ctx context.Context, id string) error {
+	return s.repo.ReportSubmission(ctx, id)
 }
 
 func toResponse(s repository.Submission) SubmissionResponse {

@@ -3,6 +3,12 @@ CREATE SCHEMA IF NOT EXISTS identity_schema;
 CREATE SCHEMA IF NOT EXISTS salary_schema;
 CREATE SCHEMA IF NOT EXISTS community_schema;
 
+-- Shared enum for submission lifecycle status
+DO $$ BEGIN
+    CREATE TYPE public.submission_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'REPORTED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- Provide a function to generate UUID v7 natively in Postgres globally
 -- By placing this in the public schema, all microservice schemas can reuse it
 CREATE OR REPLACE FUNCTION public.generate_uuid_v7() 

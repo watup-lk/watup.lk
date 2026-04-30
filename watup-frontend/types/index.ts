@@ -1,8 +1,8 @@
 // ── Core enums ────────────────────────────────────────────────────────────
 export type ExperienceLevel = 'junior' | 'mid' | 'senior' | 'lead' | 'principal';
-export type SubmissionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type SubmissionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REPORTED';
 export type WorkType = 'Remote' | 'Hybrid' | 'Onsite';
-export type VoteFilter = 'all' | 'needs-vote' | 'recently-approved' | 'reported';
+export type VoteFilter = 'all' | 'recently-approved' | 'reported' | 'pending';
 export type VoteResult = 'approved' | 'flagged' | 'pending';
 export type K8sStatus = 'healthy' | 'degraded' | 'down';
 
@@ -36,6 +36,8 @@ export interface SearchFilters {
   role?: string;
   experienceLevel?: ExperienceLevel;
   query?: string;
+  status?: SubmissionStatus;
+  limit?: number;
 }
 
 // ── Stats & analytics ─────────────────────────────────────────────────────
@@ -119,6 +121,8 @@ export interface RecentlyApprovedSalary {
   monthlySalaryLKR: number;
   experienceLevel: ExperienceLevel;
   companyType: string;
+  workType?: WorkType;
+  country?: string;
 }
 
 export interface DashboardData {

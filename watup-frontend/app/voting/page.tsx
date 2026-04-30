@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getVotingQueue, vote } from "@/lib/api";
+import { getVotingQueue, vote, reportSalary } from "@/lib/api";
 import { SalarySubmission, VoteFilter } from "@/types";
 import styles from "./page.module.css";
 import Link from "next/link";
 
 const FILTERS: { value: VoteFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "needs-vote", label: "Needs 1 More Vote" },
   { value: "recently-approved", label: "Recently Approved" },
   { value: "reported", label: "Reported" },
 ];
@@ -28,6 +27,7 @@ export default function VotingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [voted, setVoted] = useState<Record<string, "UP" | "DOWN">>({});
+  const [reported, setReported] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const token =
@@ -68,6 +68,7 @@ export default function VotingPage() {
 
     try {
       await vote(id, type, token);
+      getVotingQueue(filter, token).then(setItems).catch(() => {});
     } catch {
       setVoted((v) => {
         const n = { ...v };
@@ -84,6 +85,27 @@ export default function VotingPage() {
           };
         }),
       );
+    }
+  }
+
+  async function handleReport(id: string) {
+    const token =
+      localStorage.getItem("token") ?? sessionStorage.getItem("token");
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+    if (reported[id]) return;
+    setReported((r) => ({ ...r, [id]: true }));
+    try {
+      await reportSalary(id, "reported as fake", token);
+      getVotingQueue(filter, token).then(setItems).catch(() => {});
+    } catch {
+      setReported((r) => {
+        const n = { ...r };
+        delete n[id];
+        return n;
+      });
     }
   }
 
@@ -135,6 +157,11 @@ export default function VotingPage() {
                     <span className={`${styles.badge} ${styles.badgePending}`}>
                       {item.status}
                     </span>
+                    {item.status === "REPORTED" && (
+                      <span className={`${styles.badge} ${styles.badgeReported}`}>
+                        ⚑ reported fake
+                      </span>
+                    )}
                   </div>
                   <p className={styles.cardMeta}>
                     {item.anonymize ? `(${item.company})` : item.company}
@@ -175,8 +202,13 @@ export default function VotingPage() {
 
               <div className={styles.cardFooter}>
                 <div className={styles.cardActions}>
-                  <button className={styles.reportBtn}>⚑ Report as fake</button>
-                  <button className={styles.commentBtn}>☐ Comment</button>
+                  <button
+                    className={styles.reportBtn}
+                    onClick={() => handleReport(item.id)}
+                    disabled={!!reported[item.id]}
+                  >
+                    {reported[item.id] ? "⚑ Reported" : "⚑ Report as fake"}
+                  </button>
                 </div>
                 <p className={styles.cardTime}>
                   Submitted {timeAgo(item.createdAt)} · {needed} to approve

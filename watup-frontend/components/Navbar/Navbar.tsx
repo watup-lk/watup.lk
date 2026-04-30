@@ -15,7 +15,6 @@ const PUBLIC_LINKS = [
 const AUTH_LINKS = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Voting", href: "/voting" },
-  { label: "Admin", href: "/admin" },
 ];
 
 export default function Navbar() {

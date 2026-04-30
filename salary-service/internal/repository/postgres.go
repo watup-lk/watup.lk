@@ -143,6 +143,12 @@ func (r *PostgresRepo) ApproveSubmission(ctx context.Context, submissionID strin
 	return err
 }
 
+func (r *PostgresRepo) ReportSubmission(ctx context.Context, submissionID string) error {
+	const q = `UPDATE salary_schema.submissions SET status = 'REPORTED' WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, q, submissionID)
+	return err
+}
+
 func itoa(i int) string {
 	const digits = "0123456789"
 	if i < 10 {

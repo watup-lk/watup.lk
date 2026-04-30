@@ -66,6 +66,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /salary", salaryH.List)
 	mux.HandleFunc("POST /salary", salaryH.Create)
+	mux.HandleFunc("POST /salary/{id}/report", salaryH.Report)
 	mux.HandleFunc("GET /health/live", healthH.Liveness)
 	mux.HandleFunc("GET /health/ready", healthH.Readiness)
 
