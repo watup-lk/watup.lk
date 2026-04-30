@@ -21,16 +21,20 @@ type fakeSalaryService struct {
 	createResult service.SubmissionResponse
 	createErr    error
 	createReq    service.CreateRequest
+	reportErr    error
 }
 
 func (f *fakeSalaryService) List(_ context.Context, filter repository.FindFilter) ([]service.SubmissionResponse, error) {
 	f.listFilter = filter
 	return f.listResult, f.listErr
 }
-
 func (f *fakeSalaryService) Create(_ context.Context, req service.CreateRequest) (service.SubmissionResponse, error) {
 	f.createReq = req
 	return f.createResult, f.createErr
+}
+
+func (f *fakeSalaryService) Report(_ context.Context, _ string) error {
+	return f.reportErr
 }
 
 func TestNewSalaryHandlerStoresService(t *testing.T) {
@@ -182,5 +186,37 @@ func TestCreate_OK(t *testing.T) {
 	}
 	if !svc.createReq.Anonymize {
 		t.Fatal("expected anonymize flag to be forwarded")
+	}
+}
+
+func TestReport_OK(t *testing.T) {
+	h := &SalaryHandler{svc: &fakeSalaryService{}}
+	req := httptest.NewRequest(http.MethodPost, "/salary/123/report", nil)
+	req.SetPathValue("id", "123")
+	w := httptest.NewRecorder()
+	h.Report(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", w.Code)
+	}
+}
+
+func TestReport_MissingID(t *testing.T) {
+	h := &SalaryHandler{svc: &fakeSalaryService{}}
+	req := httptest.NewRequest(http.MethodPost, "/salary//report", nil)
+	w := httptest.NewRecorder()
+	h.Report(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestReport_ServiceError(t *testing.T) {
+	h := &SalaryHandler{svc: &fakeSalaryService{reportErr: errors.New("report failed")}}
+	req := httptest.NewRequest(http.MethodPost, "/salary/123/report", nil)
+	req.SetPathValue("id", "123")
+	w := httptest.NewRecorder()
+	h.Report(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", w.Code)
 	}
 }

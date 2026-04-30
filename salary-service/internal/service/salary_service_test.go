@@ -23,6 +23,10 @@ func (f *fakeRepo) FindApproved(_ context.Context, filter repository.FindFilter)
 	return f.submissions, f.err
 }
 
+func (f *fakeRepo) ReportSubmission(_ context.Context, _ string) error {
+	return f.err
+}
+
 func (f *fakeRepo) Create(_ context.Context, params repository.CreateParams) (repository.Submission, error) {
 	f.createParams = params
 	return f.created, f.err
@@ -229,6 +233,24 @@ func TestCreate_Error(t *testing.T) {
 		Role:             "Engineer",
 		MonthlySalaryLKR: 100000,
 	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestReport_OK(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := newTestService(repo)
+	err := svc.Report(context.Background(), "123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestReport_Error(t *testing.T) {
+	repo := &fakeRepo{err: errors.New("report failed")}
+	svc := newTestService(repo)
+	err := svc.Report(context.Background(), "123")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

@@ -108,6 +108,49 @@ describe('bff app', () => {
     expect(res.body).toEqual({ message: 'vote service unavailable' });
   });
 
+  it('reports submissions through salary-service', async () => {
+    fetchMock
+      .mockResolvedValueOnce(authResponse())
+      .mockResolvedValueOnce({ ok: true, status: 204 });
+
+    const res = await request(createApp())
+      .post('/api/report/salary-1')
+      .set('Authorization', 'Bearer token');
+
+    expect(res.status).toBe(204);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://salary-service:8080/salary/salary-1/report',
+      { method: 'POST' },
+    );
+  });
+
+  it('returns upstream report errors', async () => {
+    fetchMock
+      .mockResolvedValueOnce(authResponse())
+      .mockResolvedValueOnce({ ok: false, status: 409 });
+
+    const res = await request(createApp())
+      .post('/api/report/salary-1')
+      .set('Authorization', 'Bearer token');
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ message: 'failed to report submission' });
+  });
+
+  it('returns bad gateway when salary-service report is unavailable', async () => {
+    fetchMock
+      .mockResolvedValueOnce(authResponse())
+      .mockRejectedValueOnce(new Error('salary unavailable'));
+
+    const res = await request(createApp())
+      .post('/api/report/salary-1')
+      .set('Authorization', 'Bearer token');
+
+    expect(res.status).toBe(502);
+    expect(res.body).toEqual({ message: 'salary service unavailable' });
+  });
+
   it('loads pending vote queue through search-service', async () => {
     const pending = [{ id: 'salary-1', status: 'PENDING' }];
     fetchMock
@@ -146,6 +189,24 @@ describe('bff app', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       'http://search-service:8080/search?status=APPROVED&limit=50',
+    );
+  });
+
+  it('loads reported vote queue from reported search results', async () => {
+    fetchMock
+      .mockResolvedValueOnce(authResponse())
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 'salary-reported', status: 'REPORTED' }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }));
+
+    const res = await request(createApp())
+      .get('/api/vote/queue?filter=reported')
+      .set('Authorization', 'Bearer token');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([{ id: 'salary-reported', status: 'REPORTED', upvotes: 0, downvotes: 0 }]);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://search-service:8080/search?status=REPORTED&limit=50',
     );
   });
 
@@ -240,8 +301,6 @@ describe('bff app', () => {
           role: 'Engineer',
           company: 'Acme',
           monthlySalaryLKR: 250000,
-          upvotes: 3,
-          downvotes: 1,
         }],
       }))
       .mockResolvedValueOnce(jsonResponse({
@@ -251,7 +310,12 @@ describe('bff app', () => {
           monthlySalaryLKR: 500000,
           experienceLevel: 'senior',
           company: 'Watup',
+          workType: 'Remote',
+          country: 'LK',
         }],
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        results: [{ submission_id: 'pending-1', up_count: 3, down_count: 1 }],
       }));
 
     const res = await request(createApp())
@@ -273,6 +337,14 @@ describe('bff app', () => {
       2,
       'http://search-service:8080/search?status=PENDING&limit=10',
     );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://search-service:8080/search?status=APPROVED&limit=10',
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      'http://vote-service:8080/vote/counts',
+    );
   });
 
   it('uses dashboard defaults for missing votes and empty approved salaries', async () => {
@@ -286,6 +358,7 @@ describe('bff app', () => {
           monthlySalaryLKR: 250000,
         }],
       }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
       .mockResolvedValueOnce(jsonResponse({ results: [] }));
 
     const res = await request(createApp())
@@ -304,6 +377,7 @@ describe('bff app', () => {
     fetchMock
       .mockResolvedValueOnce(authResponse())
       .mockResolvedValueOnce(jsonResponse({}, false, 502))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
       .mockResolvedValueOnce(jsonResponse({ results: [] }));
 
     const res = await request(createApp())
@@ -317,7 +391,9 @@ describe('bff app', () => {
   it('returns bad gateway when dashboard search throws', async () => {
     fetchMock
       .mockResolvedValueOnce(authResponse())
-      .mockRejectedValueOnce(new Error('search unavailable'));
+      .mockRejectedValueOnce(new Error('search unavailable'))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }));
 
     const res = await request(createApp())
       .get('/api/dashboard')
