@@ -35,6 +35,7 @@ export interface SearchFilters {
   company?: string;
   role?: string;
   experienceLevel?: ExperienceLevel;
+  workType?: WorkType;
   query?: string;
   status?: SubmissionStatus;
   limit?: number;

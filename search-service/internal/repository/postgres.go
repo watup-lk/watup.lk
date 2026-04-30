@@ -29,6 +29,7 @@ type SearchFilter struct {
 	Company         string
 	Country         string
 	ExperienceLevel string
+	WorkType        string
 	Query           string
 	Status          string
 	Page            int
@@ -87,6 +88,11 @@ func (r *PostgresRepo) Search(ctx context.Context, f SearchFilter) (SearchResult
 	if f.ExperienceLevel != "" {
 		conds = append(conds, "s.experience_level = $"+itoa(i))
 		args = append(args, f.ExperienceLevel)
+		i++
+	}
+	if f.WorkType != "" {
+		conds = append(conds, "s.work_type = $"+itoa(i))
+		args = append(args, f.WorkType)
 		i++
 	}
 	if f.Query != "" {

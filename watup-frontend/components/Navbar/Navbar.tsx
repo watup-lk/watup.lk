@@ -52,7 +52,7 @@ export default function Navbar() {
     <>
       <nav className={styles.navbar}>
         <Link href="/" className={styles.brand}>
-          <span className={styles.brandIcon}>≈</span>
+          <span className={styles.brandIcon}> 💲 </span>
           Watup.lk
         </Link>
 
