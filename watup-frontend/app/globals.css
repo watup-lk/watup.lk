@@ -11,27 +11,38 @@
   --color-surface: #161b22;
   --color-surface-2: #1c2333;
   --color-surface-3: #21262d;
+
   --color-border: #30363d;
   --color-border-subtle: #21262d;
+
   --color-text: #e6edf3;
-  --color-text-muted: #7d8590;
-  --color-text-subtle: #484f58;
-  --color-primary: #00d4d4;
-  --color-primary-hover: #00b3b3;
-  --color-primary-dim: rgba(0, 212, 212, 0.12);
+  --color-text-muted: #8b949e; /* slightly improved contrast */
+  --color-text-subtle: #6e7681;
+
+  /* 🔹 FIX: replace neon teal */
+  --color-primary: #2f81f7;         /* GitHub-ish blue */
+  --color-primary-hover: #1f6feb;
+  --color-primary-dim: rgba(47, 129, 247, 0.12);
+
+  /* keep your semantics, just slightly refined */
   --color-success: #3fb950;
   --color-success-dim: rgba(63, 185, 80, 0.15);
+
   --color-danger: #f85149;
   --color-danger-dim: rgba(248, 81, 73, 0.15);
+
   --color-warning: #d29922;
   --color-warning-dim: rgba(210, 153, 34, 0.15);
+
   --color-pending: #e3b341;
   --color-pending-dim: rgba(227, 179, 65, 0.15);
+
   --color-purple: #bc8cff;
   --color-orange: #ffa657;
   --color-blue: #79c0ff;
 
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* ✅ FONT CHANGE */
+  --font-sans: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'Geist Mono', 'SF Mono', ui-monospace, 'Cascadia Code', monospace;
 
   --radius-sm: 4px;
@@ -42,38 +53,48 @@
   --shadow: 0 4px 12px rgba(0,0,0,0.5);
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
 }
-
 /* ── Light theme ──────────────────────────────────────────────────────────── */
 [data-theme="light"] {
   --color-bg: #f6f8fa;
   --color-surface: #ffffff;
   --color-surface-2: #f0f2f5;
   --color-surface-3: #e8eaed;
+
   --color-border: #d0d7de;
   --color-border-subtle: #eaeef2;
+
   --color-text: #1f2328;
   --color-text-muted: #656d76;
   --color-text-subtle: #8c959f;
-  --color-primary: #0969da;
-  --color-primary-hover: #0550ae;
-  --color-primary-dim: rgba(9, 105, 218, 0.1);
+
+  /* 🔹 match dark theme */
+  --color-primary: #2f81f7;
+  --color-primary-hover: #1f6feb;
+  --color-primary-dim: rgba(47, 129, 247, 0.1);
+
   --color-success: #1a7f37;
   --color-success-dim: rgba(26, 127, 55, 0.1);
+
   --color-danger: #cf222e;
   --color-danger-dim: rgba(207, 34, 46, 0.1);
+
   --color-warning: #9a6700;
   --color-warning-dim: rgba(154, 103, 0, 0.1);
+
   --color-pending: #bf8700;
   --color-pending-dim: rgba(191, 135, 0, 0.1);
+
   --color-purple: #8250df;
   --color-orange: #bc4c00;
-  --color-blue: #0550ae;
+  --color-blue: #1f6feb;
+
+  /* ✅ FONT */
+  --font-sans: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.07);
   --shadow: 0 1px 3px rgba(0,0,0,0.12);
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.14);
 }
-
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 html, body {
   font-family: var(--font-sans);

@@ -30,11 +30,21 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	page := parseIntClamped(q.Get("page"), 1, 1, math.MaxInt)
 	limit := parseIntClamped(q.Get("limit"), 20, 1, 100)
 
+	experienceLevel := q.Get("experience_level")
+	if experienceLevel == "" {
+		experienceLevel = q.Get("experienceLevel")
+	}
+	workType := q.Get("work_type")
+	if workType == "" {
+		workType = q.Get("workType")
+	}
+
 	filter := repository.SearchFilter{
 		Role:            q.Get("role"),
 		Company:         q.Get("company"),
 		Country:         q.Get("country"),
-		ExperienceLevel: q.Get("experience_level"),
+		ExperienceLevel: experienceLevel,
+		WorkType:        workType,
 		Query:           q.Get("query"),
 		Status:          q.Get("status"),
 		Page:            page,

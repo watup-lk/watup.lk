@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getNames } from 'country-list';
 import { submitSalary } from '@/lib/api';
 import { ExperienceLevel, WorkType } from '@/types';
 import styles from './page.module.css';
+
+const COUNTRIES: string[] = getNames().sort();
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -54,6 +57,12 @@ export default function SubmitPage() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
+    setIsLoggedIn(!!token);
+  }, []);
 
   function set(key: keyof FormData, value: string | boolean) {
     setForm(f => ({ ...f, [key]: value }));
@@ -155,9 +164,14 @@ export default function SubmitPage() {
                 <label className={styles.label}>COUNTRY</label>
                 <input
                   className={styles.input}
+                  list="country-list"
+                  placeholder="Type to search…"
                   value={form.country}
                   onChange={e => set('country', e.target.value)}
                 />
+                <datalist id="country-list">
+                  {COUNTRIES.map((name: string) => <option key={name} value={name} />)}
+                </datalist>
               </div>
             </div>
           )}
@@ -218,16 +232,25 @@ export default function SubmitPage() {
                 </div>
                 <button
                   type="button"
-                  className={`${styles.toggle} ${form.anonymize ? styles.toggleOn : ''}`}
-                  onClick={() => set('anonymize', !form.anonymize)}
+                  className={`${styles.toggle} ${form.anonymize ? styles.toggleOn : ''} ${!isLoggedIn ? styles.toggleDisabled : ''}`}
+                  onClick={() => isLoggedIn && set('anonymize', !form.anonymize)}
                   aria-label="Toggle anonymize"
+                  disabled={!isLoggedIn}
+                  title={!isLoggedIn ? 'Log in to turn off anonymization' : undefined}
                 >
                   <span className={styles.toggleKnob} />
                 </button>
               </div>
-              <div className={styles.privacyNotice}>
-                No email, user ID, or personal info stored with this submission.
-              </div>
+              {!isLoggedIn && (
+                <div className={styles.privacyNotice}>
+                  Anonymization is always on for guest submissions. <a href="/login">Log in</a> to disable it.
+                </div>
+              )}
+              {isLoggedIn && (
+                <div className={styles.privacyNotice}>
+                  No email, user ID, or personal info stored with this submission.
+                </div>
+              )}
             </div>
           )}
 

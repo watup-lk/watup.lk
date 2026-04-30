@@ -15,7 +15,6 @@ const PUBLIC_LINKS = [
 const AUTH_LINKS = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Voting", href: "/voting" },
-  { label: "Admin", href: "/admin" },
 ];
 
 export default function Navbar() {
@@ -53,7 +52,7 @@ export default function Navbar() {
     <>
       <nav className={styles.navbar}>
         <Link href="/" className={styles.brand}>
-          <span className={styles.brandIcon}>≈</span>
+          <span className={styles.brandIcon}> 💲 </span>
           Watup.lk
         </Link>
 

@@ -12,8 +12,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     experience_level VARCHAR(20) CHECK (experience_level IN ('junior','mid','senior','lead','principal')),
     work_type        VARCHAR(10) CHECK (work_type IN ('Remote','Hybrid','Onsite')),
     is_anonymized    BOOLEAN NOT NULL DEFAULT FALSE,
-    status           VARCHAR(10) NOT NULL DEFAULT 'PENDING'
-                         CHECK (status IN ('PENDING','APPROVED','REJECTED')),
+    status           public.submission_status NOT NULL DEFAULT 'PENDING',
     created_at       TIMESTAMPTZ DEFAULT NOW(),
     updated_at       TIMESTAMPTZ DEFAULT NOW()
 );

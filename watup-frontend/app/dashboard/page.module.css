@@ -74,6 +74,22 @@
   font-family: var(--font-mono);
 }
 
+.guestBanner {
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  padding: 0.6rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.guestBanner a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
 /* Stat cards */
 .statsGrid {
   display: grid;
@@ -322,7 +338,7 @@
 /* Recently approved */
 .approvedGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
 }
 
@@ -355,6 +371,15 @@
   font-weight: 600;
   font-size: 0.875rem;
   color: var(--color-text);
+}
+
+.approvedCompany {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .approvedMeta {

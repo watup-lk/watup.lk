@@ -32,7 +32,7 @@ func Load() *Config {
 		JWTSecret:          getEnv("JWT_SECRET", ""),
 		KafkaBrokers:       strings.Split(getEnv("KAFKA_BROKERS", "localhost:9092"), ","),
 		AzureKeyVaultURL:   getEnv("AZURE_KEYVAULT_URL", ""),
-		AccessTokenMinutes: getEnvInt("ACCESS_TOKEN_MINUTES", 15),
+		AccessTokenMinutes: getEnvInt("ACCESS_TOKEN_MINUTES", 185),
 		RefreshTokenDays:   getEnvInt("REFRESH_TOKEN_DAYS", 7),
 	}
 

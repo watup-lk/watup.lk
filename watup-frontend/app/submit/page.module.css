@@ -162,6 +162,11 @@
   border-color: var(--color-primary);
 }
 
+.toggleDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .toggleKnob {
   position: absolute;
   top: 2px;

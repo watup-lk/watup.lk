@@ -10,12 +10,14 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "country-list": "^2.4.1",
     "next": "16.2.4",
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^3.7.0"
   },
   "devDependencies": {
+    "@types/country-list": "^2.1.4",
     "@types/jest": "^29.5.12",
     "@types/node": "^20",
     "@types/react": "^18",

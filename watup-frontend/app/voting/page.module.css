@@ -132,6 +132,11 @@
   color: var(--color-pending);
 }
 
+.badgeReported {
+  background: #3d1a1a;
+  color: #f87171;
+}
+
 .cardMeta {
   font-size: 0.8rem;
   color: var(--color-text-muted);

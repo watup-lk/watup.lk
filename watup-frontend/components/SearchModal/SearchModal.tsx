@@ -2,14 +2,15 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { searchSalaries } from '@/lib/api';
-import { SearchResult } from '@/types';
+import { ExperienceLevel, SearchResult, WorkType } from '@/types';
 import styles from './SearchModal.module.css';
 
 interface SearchModalProps {
   onClose: () => void;
 }
 
-const ACTIVE_FILTERS = ['Senior', 'Sri Lanka', '2025'];
+const EXPERIENCE_LEVELS: ExperienceLevel[] = ['junior', 'mid', 'senior', 'lead', 'principal'];
+const WORK_TYPES: WorkType[] = ['Remote', 'Hybrid', 'Onsite'];
 
 function formatSalary(n: number) {
   return new Intl.NumberFormat('en-LK').format(n);
@@ -20,6 +21,8 @@ export default function SearchModal({ onClose }: SearchModalProps) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel | undefined>();
+  const [workType, setWorkType] = useState<WorkType | undefined>();
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -27,18 +30,17 @@ export default function SearchModal({ onClose }: SearchModalProps) {
     inputRef.current?.focus();
   }, []);
 
-  const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) {
+  const doSearch = useCallback(async (q: string, level?: ExperienceLevel, wt?: WorkType) => {
+    if (!q.trim() && !level && !wt) {
       setResults([]);
       return;
     }
     setLoading(true);
     try {
-      const data = await searchSalaries({ query: q });
+      const data = await searchSalaries({ query: q, experienceLevel: level, workType: wt });
       setResults(data);
       setSelectedIdx(0);
     } catch {
-      // BFF not available — show empty state
       setResults([]);
     } finally {
       setLoading(false);
@@ -49,7 +51,19 @@ export default function SearchModal({ onClose }: SearchModalProps) {
     const val = e.target.value;
     setQuery(val);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(val), 300);
+    debounceRef.current = setTimeout(() => doSearch(val, experienceLevel, workType), 300);
+  }
+
+  function handleLevelChange(level: ExperienceLevel) {
+    const next = experienceLevel === level ? undefined : level;
+    setExperienceLevel(next);
+    doSearch(query, next, workType);
+  }
+
+  function handleWorkTypeChange(wt: WorkType) {
+    const next = workType === wt ? undefined : wt;
+    setWorkType(next);
+    doSearch(query, experienceLevel, next);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -63,6 +77,9 @@ export default function SearchModal({ onClose }: SearchModalProps) {
       onClose();
     }
   }
+
+  const hasFilters = !!experienceLevel || !!workType;
+  const showResults = !!query || hasFilters;
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -79,21 +96,36 @@ export default function SearchModal({ onClose }: SearchModalProps) {
             autoComplete="off"
           />
           <div className={styles.shortcuts}>
-            <kbd>K</kbd>
             <kbd>ESC</kbd>
           </div>
         </div>
 
-        {/* Active filters */}
-        {/* <div className={styles.filters}>
-          {ACTIVE_FILTERS.map(f => (
-            <span key={f} className={styles.filterChip}>{f}</span>
+        {/* Filters */}
+        <div className={styles.filters}>
+          <span className={styles.filterLabel}>Level:</span>
+          {EXPERIENCE_LEVELS.map(level => (
+            <button
+              key={level}
+              className={`${styles.filterChip} ${experienceLevel === level ? styles.filterChipActive : styles.filterChipInactive}`}
+              onClick={() => handleLevelChange(level)}
+            >
+              {level}
+            </button>
           ))}
-          <button className={styles.addFilter}>+ Add filter</button>
-        </div> */}
+          <span className={styles.filterDivider} />
+          {WORK_TYPES.map(wt => (
+            <button
+              key={wt}
+              className={`${styles.filterChip} ${workType === wt ? styles.filterChipActive : styles.filterChipInactive}`}
+              onClick={() => handleWorkTypeChange(wt)}
+            >
+              {wt}
+            </button>
+          ))}
+        </div>
 
         {/* Results */}
-        {query && (
+        {showResults && (
           <div className={styles.results}>
             <div className={styles.resultsMeta}>
               <span>{loading ? 'Searching...' : `${results.length} results · Showing approved only`}</span>
@@ -126,21 +158,9 @@ export default function SearchModal({ onClose }: SearchModalProps) {
           </div>
         )}
 
-        {/* Footer */}
-        <div className={styles.footer}>
-          <div className={styles.footerLeft}>
-            <span>Navigate</span>
-            <span>Select</span>
-            <span> Filter</span>
-          </div>
-          {results.length > 0 && (
-            <button className={styles.viewAll}>View Full Results →</button>
-          )}
-        </div>
-
         {!query && (
           <div className={styles.hint}>
-            Search queries: BFF → Search Service → salary schema (APPROVED only)
+            Search queries: salary schema (APPROVED only)
           </div>
         )}
       </div>
