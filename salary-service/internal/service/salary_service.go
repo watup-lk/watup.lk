@@ -107,14 +107,10 @@ func (s *SalaryService) Report(ctx context.Context, id string) error {
 }
 
 func toResponse(s repository.Submission) SubmissionResponse {
-	company := s.Company
-	if s.IsAnonymized {
-		company = nil
-	}
 	return SubmissionResponse{
 		ID:                s.ID,
 		Role:              s.Role,
-		Company:           company,
+		Company:           s.Company,
 		Country:           s.Country,
 		City:              s.City,
 		MonthlySalaryLKR:  s.SalaryAmount,

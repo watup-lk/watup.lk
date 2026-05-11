@@ -138,13 +138,13 @@ func (r *PostgresRepo) Create(ctx context.Context, p CreateParams) (Submission, 
 }
 
 func (r *PostgresRepo) ApproveSubmission(ctx context.Context, submissionID string) error {
-	const q = `UPDATE salary_schema.submissions SET status = 'APPROVED' WHERE id = $1 AND status = 'PENDING'`
+	const q = `UPDATE submissions SET status = 'APPROVED' WHERE id = $1 AND status = 'PENDING'`
 	_, err := r.db.ExecContext(ctx, q, submissionID)
 	return err
 }
 
 func (r *PostgresRepo) ReportSubmission(ctx context.Context, submissionID string) error {
-	const q = `UPDATE salary_schema.submissions SET status = 'REPORTED' WHERE id = $1`
+	const q = `UPDATE submissions SET status = 'REPORTED' WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, q, submissionID)
 	return err
 }
